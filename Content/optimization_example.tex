@@ -1,0 +1,71 @@
+
+Consider the following two programs.
+
+\begin{listing}[!ht]
+\begin{minted}{haskell}
+SWAP3 SWAP1 SWAP2 MSTORE SWAP1 SWAP2 ADD SWAP1 MSTORE
+\end{minted}
+\caption{Original EVM program}
+\label{lst:evm-original}
+\end{listing}
+
+\begin{listing}[!ht]
+\begin{minted}{haskell}
+MSTORE MSTORE POP 
+\end{minted}
+\caption{Optimized EVM program}
+\label{lst:evm-optimized}
+\end{listing}
+
+Even though we refer to them as ``Original'' and ``Optimized'', at first glance these two programs don't
+appear to be equivalent. Consider the execution of the first program (\ref{lst:evm-original}).
+
+\begin{minted}{haskell}
+[x0,x1,x2,x3,x4,x5]
+SWAP3    -- Exchange 0th with 3rd element
+[x3,x1,x2,x0,x4,x5]
+SWAP1    -- Exchange 0th with 1st element
+[x1,x3,x2,x0,x4,x5]
+SWAP2    -- Exchange 0th with 2nd element
+[x2,x3,x1,x0,x4,x5]
+MSTORE   -- Store 1st element at 0th element's offset
+[x1,x0,x4,x5] -> MEM[x2] = x3
+SWAP1
+[x0,x1,x4,x5]
+SWAP2
+[x4,x1,x0,x5]
+ADD      -- Exchange first 2 elements with their sum
+[x4+x1,x0,x5]
+SWAP1
+[x0,x4+x1,x5]
+MSTORE
+[x5] -> MEM[x0] = x4+x1
+\end{minted}
+
+Finally, consider the execution of the second program (\ref{lst:evm-optimized})
+
+\begin{minted}{haskell}
+[x0,x1,x2,x3,x4,x5]
+MSTORE
+[x2,x3,x4,x5] -> MEM[x0] = x1
+MSTORE
+[x4,x5] -> MEM[x2] = x3
+POP     -- Discard 0th element
+[x5] 
+\end{minted}
+
+The effects that these two programs produce are very different. However, they become equivalent
+if we have the following pieces of context:
+
+\begin{itemize}
+    \item \verb|x4| $=$ \verb|x5|
+    \item \verb|x5| $=$ 0
+    \item \verb|x0| $\ge$ \verb|x2| $+ 128$
+\end{itemize}
+
+The first two ensure that \verb|x4| $+$ \verb|x1| is in fact equivalent to \verb|x1| since from them we
+can deduce that \verb|x4| $= 0$. The last one guarantees that the memory accesses to the offsets
+referenced by \verb|x0| and \verb|x2| are disjoint, since the word size of the EVM is of 32 bytes (128 
+bits), and therefore we can reorder both writes while preserving the semantics of the code. These two
+snippets which at first seemed different can be shown to be equivalent if some sort of conditions always
+apply.

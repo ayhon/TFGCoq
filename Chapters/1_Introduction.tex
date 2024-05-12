@@ -1,0 +1,119 @@
+\chapter{Introduction}
+\label{cap:introduction}
+
+% \chapterquote{Frase célebre dicha por alguien inteligente}{Autor}
+\chapterquote
+{Ethereum, taken as a whole, can be viewed as a transaction-based state machine: we begin with a genesis state and incrementally execute transactions to morph it into some current state. It is this current state which we accept as the canonical “version” of the world of Ethereum.}
+{Ethereum Yellow Paper}
+
+\section{Motivation}
+\label{sect:motivation}
+
+% A distinctive feature of Ethereum is that transactions are programs, smart contracts, and computing a state transition requires to run the contract code to compute the next state. This capability
+% is provided by the Ethereum Virtual Machine (EVM) that can execute programs written in EVM
+% bytecode.
+
+
+In the field of code optimization, EVM bytecode stands as a language with much to benefit from, as it
+has some unique requirements which open up new dimensions for optimization. For general purpose
+programming languages the optimization's focus are usually on execution time, memory usage or code size.
+However, in the case of programs compiled to EVM bytecode, called \emph{smart contracts}, one must also
+take into consideration other factors, such as the size of the compiled binary or the cost of the
+programs execution. Every EVM instruction requires a fee (called \emph{gas}\footnote{See 
+\url{https://www.evm.codes/}}) to be paid for its execution, and these prices can vary greatly in 
+magnitude.
+
+% https://costa.fdi.ucm.es/papers/costa/AlbertGHR22.pdf
+
+However, the optimization of EVM bytecode is not as widespread as one could imagine. This is in part
+due to the higher stakes that EVM programs, called \emph{smart contracts}, tend to work under. A bug
+in a \emph{smart contract} tends to have a greater impact than most other programs, often resulting
+in large monetary loses\footnote{See \url{https://www.gemini.com/cryptopedia/the-dao-hack-makerdao}}.
+It's therefore understandable that \emph{smart contract} developers do not want to risk
+being responsible of the semantics of their code being contaminated by a third party's tool.
+
+To mitigate this risk, the \verb|FORVES|
+\footnote{FORmaly Verified EVM optimizationS \url{https://github.com/costa-group/forves2/}}
+project aims to develop a verifier which is able to guarantee that an optimization of a jump-free
+sequence of EVM bytecode retains the same semantics as the original unoptimized version. This, however,
+does not by itself suffice to appease the worries of the \emph{smart contract} developer, since we've
+merely pushed the burden of trust from the optimizer to the verifier. If the verifier were to have a
+bug, it could fail to recognize a valid optimization or, in the worst case, guarantee that an erroneous
+optimization is in fact valid, impacting its users.
+
+The solution is to, again, shift the burden of proof to another tool. For the \verb|FORVES| project the 
+verifier has been written in Coq, a proof assistant and programming language which allows its users to 
+define a formal specification and prove that their program adheres to it. The benefit of using a tool
+such as Coq is that the burden of proof is placed on a small core subset of its features, which have
+been deeply scrutinized by mathematicians, and out of which all the other functionalities are built.
+Therefore, to trust that a Coq-certified program is correct is equivalent to trusting that the Coq  
+kernel is correct, which is a much greater assurance. 
+% TODO: add link to article on verifying Coq in Coq: https://www.openaccessgovernment.org/proof-assistants-2/80852/
+Many different projects have taken advantage of this fact to develop pieces of critical software which
+can be trusted upon \citep{ConCert}
+% TODO: add references to other tools verified in Coq
+
+The purpose of this project is to aid in the development of \verb|FORVES2|, a successor of \verb|FORVES|
+which improves on its reasoning power by allowing it to take into account contextual information to
+decide if two pieces of code are equivalent. 
+
+The \verb|FORVES| verifier was devised to certify optimizations of the \verb|GASOL| superoptimizer. 
+Superoptimization is a compilation technique that searches, for a given jump-free sequence of 
+instructions, a semantically equivalent sequence of instructions which is optimal in some metric, like
+memory usage or execution cost. Since the superoptimizer requires these sequences of instructions to not
+have bifurcations, to optimize a program it first extracts all the sequences of instructions which don't 
+perform jumps and optimizes those separately before reassembling the program. In doing so, it remembers
+which conditions triggered those jumps so it can gain more information on which states of the program
+are possible for each section of the program. Consider the following example
+
+\begin{center}
+\begin{tikzpicture}[auto,
+  node distance = 12mm and 20mm,
+  start chain = going below,
+  box/.style = {draw,rounded corners,blur shadow,fill=white,
+        on chain,align=center}]
+ \node[box] (b2)    {\verb|x0|\mintinline{haskell}{ = ...} \\ \verb|x1|\mintinline{haskell}{ = ...} \\ \verb|x0| - \verb|x1| $\ge$ 128?};      
+ \node[box] (b3)    {\mintinline{haskell}{MEM[x0] = ...} \\ \mintinline{haskell}{MEM[x1] = ...}};  
+ \node[box,right=of b2] (b4)    {\dots};     
+ \begin{scope}[rounded corners,-latex]
+ \path 
+  (b2) edge node{\color{red}{\texttt{false}}} (b4)
+  (b2) edge node{\mintinline{coq}{true}} (b3);
+ \end{scope}
+\end{tikzpicture}
+\end{center}
+
+The third block is only reachable if the jump condition is met, which means that \verb|x0| $\ge$ 
+\verb|x1| $+ 128$. This information can be useful when optimizing a piece of code, and must therefore
+be taken into consideration when certifying that two sequences of instructions are semantically 
+equivalent. 
+
+\input{Content/optimization_example}
+
+The purpose of this project is to aid in the development of \verb|FORVES2|, a successor of 
+\verb|FORVES| which is able to take into account this kind of contextual information to verify whether
+two sequences of instructions are equivalent. To do so we need to be able to reason if a set of
+constraints are met from the context, which is what this project sets out to do, by developing a 
+certified ``implication checker'' which tests whether some constraints can be derived from the current
+context.
+
+\section{Objectives}
+\label{sect:objectives}
+
+\begin{itemize}
+    \item Objective 1
+    \item Objective 2
+    \item \emph{and most importantly...} Objective 3!
+\end{itemize}
+
+\section{Work plan}
+\label{sect:work-plan}
+
+In order to achieve the previous objectives, the following plan was developed.
+
+\begin{itemize}
+    \item Define what contextual information is useful for the verifier
+    \item Define the specification of an implementation checker
+    \item Develop and certify a basic implementation checker
+    \item Develop and certify a more complex implementation checker.
+\end{itemize}

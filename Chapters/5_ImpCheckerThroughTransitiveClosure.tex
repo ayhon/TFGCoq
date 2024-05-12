@@ -1,0 +1,274 @@
+\chapter{Implication checker from transitive closure}
+\label{cap:basic-definitions}
+
+Having defined what an implication checker is, we are now left with the task of
+developing the most advanced implication checker we can muster. Originally I
+decided to approach this with the idea of modelling constraints as a graph, where
+our \mintinline{coq}{cliteral}s are the nodes of the graph and the constraints its edges. With 
+this representation we'd transform the problem of testing whether an constraint is
+implied into finding a path in a graph, for which many solutions are already 
+known.
+
+Unfortunately, this original approach had a problem, and it had to do with 
+allowing our \mintinline{coq}{cliteral}s to include variables with an offset.
+By allowing $x$ and $x + d$ for $d \in \mathbb{N}$ to be represented by 
+different nodes, we no longer have a cheap way of expressing that if $x + d \ge y + d'$ then $x + d + k \ge y + d' + k$ for every $k\in \mathbb{Z}$. The graph
+idea may be salvaged, but our definition of \mintinline{coq}{cliteral} couldn't be
+its nodes.
+
+While investigating the prior work we came accross \cite{TransitiveClosure}, where
+the author describes a $O(n^3)$ algorithm to compute the tightened transitive 
+closure of a set of octogonal constraints.
+
+Octogonal constraints are constraints of the form $\pm x - \pm y \le d$ or 
+$\pm x \le d$ where $x,y,d \in \mathbb{Z}$. We say that constraints of the form
+$\pm x - \pm y \le d$ are addition constraints and of the form $\pm x \le d$ are
+bound constraints.
+
+Our constraints can be translated to octogonal constraints through the following 
+transformations. First, we exchange every \mintinline{coq}{C_EQ} constraint with two
+\mintinline{coq}{C_LE} constraints and every \mintinline{coq}{LT} constraints with a 
+\mintinline{coq}{LE} constraint by taking advantage of the fact that since these are 
+integer constraints, if $x < y$ then $x \le y-1$. Afterwards, we get rid of all 
+inequalities of the form $d \le d'$ where $d$ ad $d'$ are constant values and not
+variables. After all, these inequalities don't reveal any information, since they
+are always true if the constraints are satisfiable, and we assume our constraints
+are indeed satisfiable. Finally, we transform all \mintinline{coq}{cliteral}s of the
+\mintinline{coq}{C_VAR} constructor to a \mintinline{coq}{C_VAR_DELTA} constructor, where
+the \mintinline{coq}{delta} field is left as 0. From there, if our constraints are not
+already in the form of an octagonal constraint, it's enough to multiple both sides
+by $-1$ or move around terms from one side of the inequality to the other until 
+they do.
+
+Given an octogonal addition constraint of the form $ax + by\le d$ where $a,b\in
+\{-1,1\}$, we say that $ax + by \le d$ \emph{trivially implies} $ax + by \le d'$
+if $d \le d'$. We say that a set of constraints $C'$ is the transitive closure of
+$C$ if every constraint implied by $C$ is trivially implied by a constraint in 
+$C'$.
+
+Therefore, if we had an algorithm to compute the transitive closure of a set of
+constraints $C$ we could implement a conjunction implication checker testing
+whether the thesis is trivially implied by any of the constraints in the 
+transitive closure of the hypothesis. This algorithm is our final goal.
+
+In \cite{TransitiveClosure} another simpler algorithm is mentioned to compute the
+transitive closure of a set of octogonal constraints, first described in 
+\cite{HarveyStuckey}. This algorithm relies on iteratively adding to an already 
+transitively close set new additive constraints, along with all the constraints needed
+to keep the set transitively closed.
+
+In particular, if $A$ is a set of addition constraints and $B$ is a set of bound 
+constraints, where $A \cup B$ is transitively closed, then 
+${A \cup B \cup \{ax+by \le d\} \cup A' \cup B'}$ is also transitively closed, where
+$A'$ is formed by the addition constraints
+\begin{itemize}
+    \item $ez + by \le d + d'$ if $-ax + ez \le d'$, $z \ne y$
+    \item $ax + ft \le d + d'$ if $ft - by \le d'$, $t \ne x$
+    \item $ex + ft \le d + d' + d''$ if $-ax + ex \le d'$, $-by + ft \le d''$ and $t$, $z$, $x$ and $yz$ are all different.
+\end{itemize}
+
+\noindent and $B'$ is formed by the bound constraints
+
+\begin{itemize}
+    \item $by \le d + d'$ if $-ax \le d'$
+    \item $ax \le d + d'$ if $-by \le d'$
+    \item $ez \le d + d' + d''$ if $-ax \le d'$ and $-by + ex \le d''$ with $z \ne x$
+    \item $ft \le d + d' + d''$ if $-by \le d'$ and $-ax + ft \le d''$ with $t \ne y$
+    \item $by \le \lceil \frac{d + d'}{2}\rceil$ if $-ax + by \le d'$
+    \item $ax \le \lceil \frac{d + d'}{2}\rceil$ if $-by + ax \le d'$
+    \item $ez \le \lceil \frac{d + d' + d''}{2}\rceil$ if $-ax + by \le d'$ and $-by + ax \le d''$
+\end{itemize}
+
+With this result one can derive an algorithm to obtain the transitive closure of any
+set of octogonal constraints. Given $C_A$ and $C_B$ sets of addition and bound 
+constraints respectively, we start with $B = C_B$ and 
+$A = \{ax + by \le d + d'\ :\  \forall ax\le d\in C_B, by\le d'\in C_B\}$ and 
+iteratively add the elements in $C_A$ using the rules above, taking care to remove
+any constraint which may be trivially implied by another.
+
+Based on these rules we implemented a simpler algorithm which is just as powerful but
+with the downside of requiring more iterations to derive the transitive closure.
+The reason is that these rules are useful if we want to prove the completeness of the 
+transitive closure, but since we're only interested in the soundness of the algorithm,
+we can notice that some of these rules are actually the result of applying one or more
+of the other rules.
+% TODO: Perhaps give an example here.
+
+If we eliminate the requirement that after each new constraint added the set must be 
+transitively closed, we can actually go without these rules. After adding a new 
+constraint we'd just have to apply the rules also with the constraint we derived at
+that step until no new constraints can be added. And since we no longer care if the
+intermediate set of constraints is transitively closed or not, we can drop the 
+requirement of adding the constraints iteratively and simply, for our currently built
+set of constraints, test for every pair whether they can be combined and add the 
+result if its not trivially implied by any of the other constraints already in the 
+set.
+
+Since the representation of the constraints is not exactly the same for our new 
+algorithm, we've opted to include this definitions in its own file, aptly named
+\verb|octagon.v|.
+
+
+% Explain as a standalone theory
+% Leave integration of the `octagon.v` file to `constraints.v` for "future work"
+
+% Start with approaches that didn't work -> Graph traversal
+% Explain WHY it doesn't work (constraints are invariant to translation)
+% Introduce the papers which inspired us to follow this approach
+
+In this new file, we've ported over a more general definition of implication of
+constraints, which works over conjunctions. Since we showed in the previous chapter
+% TODO: Add ref
+that conjunction implication checkers are equivalent to implication checkers, in this
+file we drop the requirement of disjunctions in the constraints and simply treat our
+hypothesis as conjunctions of constraints.
+
+We also include a more general version of implication which works with conjunctions as
+thesis, and add some notation to help us work with it more comfortably.
+
+\begin{minted}{coq}
+Definition implication(C: list Constraint)(C': list Constraint) :=
+  forall m, satisfies_constraints m C = true -> satisfies_constraints m C' = true.
+Infix "==>>" := implication (at level 96, right associativity).
+\end{minted}
+
+In this definition, \mintinline{coq}{satisfies_constraints} is just a \mintinline{coq}{forallb}
+over the \mintinline{coq}{satisfies_single_constraint} function. It reads as ``for every model
+which satisfies $C$, $C'$ is also satisfied''.
+
+The usual facts about implication are also true for \mintinline{coq}{==>>}, most notably.
+
+\begin{itemize}
+    \item Reflexivity
+\begin{minted}{coq}
+Theorem implication_refl(C: list Constraint):
+  (C ==>> C).
+\end{minted}
+
+    \item Transitivity
+\begin{minted}{coq}
+Theorem implication_trans(C C' C'': list Constraint):
+  (C ==>> C') -> (C' ==>> C'') -> (C ==>> C'').
+\end{minted}
+  
+\end{itemize}
+
+With these new definitions we proceed to define the functions which will help us 
+compute the transitive closure, or at least given a list of constraints $C$ help bring
+it closer to its transitive closure.
+
+Since our algorithm consists of performing successively a given number of iterations
+over the list we define an \mintinline{coq}{iterate} which we'll call consecutively to
+iteratively bring closer our constraints $C$ to its transitive closure.
+
+\begin{minted}{coq}
+Definition iterate(C: list Constraint) : list Constraint :=
+  let C' := new_constraints C in
+  let C'' := flatten C' in
+  join C C''.
+\end{minted}
+
+If we de-sugar the definition, we'll see that \mintinline{coq}{iterate} is in fact the composition of
+three different functions: 
+
+\begin{itemize}
+    \item \mintinline{coq}{new_constraints}
+    \item \mintinline{coq}{flatten}
+    \item \mintinline{coq}{join C}
+\end{itemize}
+
+\mintinline{coq}{new_constraints} itself is just a function which takes every pair of constraints in 
+\mintinline{coq}{C} and collects all the constraints obtained from their combination.
+These combinations come from the rules in Harvey's and Stuckey's algorithm, but 
+% TODO: Add ref
+simplified to make our life easier. The rules themselves are implemented in the 
+\mintinline{coq}{combine} function.
+
+\begin{minted}{coq}
+Definition new_constraints(C: list Constraint): list Constraint :=
+  flat_map (fun c => flat_map (fun c' => opt_to_list(combine c c')) C) C.
+  
+Definition combine(c c': Constraint): option Constraint :=
+  match c, c' with
+  | AddConstr l r d, AddConstr l' r' d' =>
+      if      l =? (op l') then Some (AddConstr r r' (d + d'))
+      else if l =? (op r') then Some (AddConstr r l' (d + d'))
+      else if r =? (op l') then Some (AddConstr l r' (d + d'))
+      else if r =? (op r') then Some (AddConstr l l' (d + d'))
+      else None
+  | AddConstr l r d, BndConstr t' d' =>
+      if      l =? (op t') then Some (BndConstr r (d + d'))
+      else if r =? (op t') then Some (BndConstr l (d + d'))
+      else None
+  | BndConstr t d, AddConstr l' r' d' =>
+      if      l' =? (op t) then Some (BndConstr r' (d + d'))
+      else if r' =? (op t) then Some (BndConstr l' (d + d'))
+      else None
+  | BndConstr t d, BndConstr t' d' => Some (AddConstr t t' (d + d'))
+  end.
+\end{minted}
+
+The \mintinline{coq}{flatten} function is just a map over the function 
+\mintinline{coq}{normalize_constraints}, which performs a very simple transformation, those of 
+the constraints of the form $x + x \le d$, which turn into $x \le \lfloor \frac{d}{2}\rfloor$.
+
+\begin{minted}{coq}
+Definition normalize_constraint(c: Constraint): Constraint :=
+   match c with
+   | AddConstr l r d => 
+       if l =? r 
+       then BndConstr l (d / 2)
+       else c
+   | c => c
+   end.
+\end{minted}
+
+In fact, this is an important transformation, since it allows us to tighten the 
+% TODO: Talk a bit more about the benefits of tightening and how it provides extra
+%       information.
+
+Finally the \mintinline{coq}{join} is potentially one of the most complicated functions in this file.
+Its purpose is to merge two lists of constraints into one, but getting rid of those constraints which 
+are duplicated or no longer needed.
+
+\begin{minted}{coq}
+Definition joined(c': Constraint)(cs: list Constraint) :=
+  c' :: filter (fun c => negb (trivial_impl c' c)) cs.
+
+Definition join(C C': list Constraint): list Constraint :=
+  fold_left (fun cs c' => 
+    if forallb (fun c => negb (trivial_impl c c')) cs
+    then joined c' cs
+    else cs
+  ) C' C.
+\end{minted}
+
+The property we want to proof for \mintinline{coq}{iterate} is the following.
+
+\begin{minted}{coq}
+Theorem iterate_implication(C T: list Constraint):
+  (C ==>> iterate C).
+\end{minted}
+
+This is but a corollary of the following theorems.
+\begin{minted}{coq}
+Theorem flatten_implication(C T: list Constraint):
+  (C ==>> T) -> (C ==>> flatten T).
+Theorem join_implication(C T: list Constraint):
+  (C ==>> T) -> (C ==>> join C T).
+Theorem new_constraints_implication(C T: list Constraint):
+  (C ==>> T) -> (C ==>> new_constraints T).
+\end{minted}
+
+Once these are proved, the proof of \mintinline{coq}{iterate_implication} is as simple as performing
+successive applications of these theorems.
+\begin{minted}{coq}
+Theorem iterate_implication(C: list Constraint):
+  (C ==>> iterate C).
+Proof.
+  apply join_implication.
+  apply flatten_implication.
+  apply new_constraints_implication.
+  apply implication_refl.
+Qed.
+\end{minted}

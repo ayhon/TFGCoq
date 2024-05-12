@@ -1,0 +1,524 @@
+\chapter{Coq}
+\label{cap:coq-proof-assistant}
+
+\section{Coq the programming language}
+\label{sect:coq-programming-language}
+
+Although, at its core, Coq is a typed functional programming language, we interact with this language
+in a peculiar way. When you write a program in Coq you can think of it as having a conversation with the
+language, where each statement is a question and its result is what Coq gives you as an answer. It's not
+that different from writing your programs in a REPL in other languages. However, Coq  allows you to be
+very creative with your questions. For example, the following command will prompt Coq to show the internal
+representation of its grammar. Pay attention to the final dot. All Coq commands must end in a dot.
+
+\begin{minted}{coq}
+Print Grammar constr.
+\end{minted}
+
+At first this might come off as odd. Why would one need such a command? The answer is that, while in most
+programming languages we regard the grammar as something static, Coq allows you to alter the way it parses
+your definitions. Therefore, it's useful to know what Coq currently thinks the grammar looks like. 
+
+However, these commands are not to what we refer to when we talk about Coq being a programming language.
+The programming language inside Coq can be accessed through some special commands, such as 
+\mintinline{coq}{Inductive} or \mintinline{coq}{Definition}.
+
+\mintinline{coq}{Inductive} allows us to define data types. They work similarly to enumerations in other
+languages. Consider, for example, the following definition of the booleans as a type containing two 
+constructors, \mintinline{coq}{true} and \mintinline{coq}{false}.
+
+\begin{minted}{coq}
+Inductive bool := 
+  | true
+  | false.
+\end{minted}
+
+An inductive type defined in this way can have any number of constructors, including zero!
+
+\begin{figure}[!ht]
+\begin{minted}{coq}
+Inductive void := .
+\end{minted}
+\label{lst:void}
+\end{figure}
+
+You can check for the type of a value with the \mintinline{coq}{Check} command.
+
+\begin{minted}{coq}
+Check false. 
+\end{minted}
+
+While the \mintinline{coq}{Inductive} command allows us to define types, \mintinline{coq}{Definition}
+allows us to define values. This works in a similar way to general programming languages.
+
+\begin{minted}{coq}
+Definition my_true := true.
+\end{minted}
+
+A function can be defined through the \mintinline{coq}{Definition} command by specifying its arguments on
+the left side of the \mintinline{coq}{:=}. The parenthesis around the arguments are only needed if you 
+want to specify the argument's type, or if the type itself couldn't be inferred by Coq itself.
+
+\begin{minted}{coq}
+Definition always_true (b: bool) := true.
+\end{minted}
+
+To express the return type of a function we also use the \mintinline{coq}{:type} syntax, putting it 
+right before the \mintinline{coq}{:=}.
+
+\begin{minted}{coq}
+Definition bool_identity (b: bool) : bool := b.
+\end{minted}
+
+To the right side of the \mintinline{coq}{:=} we can put any Coq expression. Technically, the language of
+expressions in Coq is called Gallina
+% https://coq.inria.fr/doc/v8.9/refman/language/gallina-specification-language.html#:~:text=This%20chapter%20describes%20Gallina%2C%20the,%2C%20functions%2C%20predicates%20and%20sets.
+but people usually refer to it as just Coq informally. Calling a function is an expression, and the syntax
+used is the same as when defining one. To illustrate this we introduce the \mintinline{coq}{Compute}
+command, which prompts Coq to evaluate an expression and show its result. 
+
+\begin{minted}{coq}
+Compute bool_identity true.
+\end{minted}
+
+
+A useful construct of Gallina is that of the 
+\mintinline{coq}{match _ with ... end} which lets us act differently depending on the way values were
+constructed.
+
+\begin{minted}{coq}
+Definition notb b := match b with 
+                     | true => false
+                     | false => true
+                     end.
+\end{minted}
+
+Observe that in this case we could do away with the parenthesis in the argument definition, since Coq was
+able to infer the type of \mintinline{coq}{b} from how it was used in the expression.
+
+We can also create functions which return functions by using the \mintinline{coq}{fun} keyword. The arguments are specified with the same syntax as before, with the main difference being that now \mintinline{coq}{=>} is used to separate the arguments from the body, and not \mintinline{coq}{:=}. The
+types of functions use \mintinline{coq}{->} to separate the argument type from the return type.
+
+\begin{minted}{coq}
+Definition andb (b: bool) : bool -> bool :=
+  fun b' => match b with 
+            | true => b'
+            | false => false
+            end.
+\end{minted}
+
+As with most functional programming languages, functions in Coq can be curried, which means that they
+can be partially applied, providing only one argument and returning a function which takes the others.
+
+When defining a new type with \mintinline{coq}{Inductive}, the constructors themselves can also take 
+arguments. This works as the main way of storing values in Coq, similar to how records work in other
+programming languages.
+
+\begin{minted}{coq}
+Inductive two_bools := my_bools (b b': bool).
+\end{minted}
+
+Notice that \mintinline{coq}{b'} is a valid identifier in Coq. While this is not unique to Coq (OCaml also
+has this feature), it's still novel enought to be worth pointing it out. Also notice that since both
+\mintinline{coq}{b} and  \mintinline{coq}{b'} had the same type we could specify it under the same set of
+parenthesis.
+
+\mintinline{coq}{Inductive} definitions are also allowed to be recursive, as long as Coq is able to prove
+that this recursion comes to an end. In general this means that at least one constructor is not 
+recursive. For example, here's the definition of Peano natural numbers in Coq.
+
+\begin{minted}{coq}
+Inductive nat :=
+  | O 
+  | S (n: nat).
+\end{minted}
+
+You can also define recursive functions, but not through the \mintinline{coq}{Definition} command. We use
+the \mintinline{coq}{Fixpoint} command instead.  When using \mintinline{coq}{match} over a type with 
+arguments in its constructors, it can be useful to use an identifier instead of a value in order to bind
+the value to the identifier.
+
+\begin{minted}{coq}
+Fixpoint add (n m: nat) :=
+  match n with
+  | O => m
+  | S n' => add n' (S m)
+  end.
+\end{minted}
+
+If the argument itself won't be used, you can also use the special
+identifier \mintinline{coq}{_} to discard it.
+
+\begin{minted}{coq}
+Fixpoint is_zero(n: nat): bool :=
+  match n with
+  | O => true
+  | _ => false
+  end.
+\end{minted}
+
+
+\mintinline{coq}{Fixpoint} functions in Coq also have the catch that Coq must be able to ensure that
+they're terminating. Therefore, a function that loops infinitely cannot be defined in Coq. To show this,
+we use the \mintinline{coq}{Fail} command, which takes another command and succeeds if it fails. It also
+shows the reason why it failed.
+
+\begin{minted}{coq}
+Fail Fixpoint loop (n: nat): nat := loop n.
+\end{minted}
+
+These are the basic building blocks of Coq's programming language. There aren't any built-in data types
+commonly found in other languages like booleans or numbers. There is an \mintinline{coq}{if} expression,
+but it turns out to just be syntactic sugar over the \mintinline{coq}{match} expression. The same is true
+for a \mintinline{coq}{let ... in} expression, which mimics its OCaml counterpart. Booleans and naturas
+are defined in the same way we defined them in these examples, through the use of 
+\mintinline{coq}{Inductive}, in Coq's standard library.
+
+To let Coq know that we want to use these definitions we'd use the following command
+
+\begin{minted}{coq}
+From Coq Require Import Bool.Bool.
+From Coq Require Import Init.Nat.
+\end{minted}
+
+Besides including the definitions mentioned before, the standard library also defines some functions 
+common functions, such as addition, and provide some syntactic sugar to work with them. For example, the
+two following statements are equivalent since they make use of the same function.
+
+\begin{minted}{coq}
+Compute add 1 2.
+Compute 1 + 2.
+\end{minted}
+
+To show the syntactic sugar that Coq is currently aware of you can use the command. 
+
+\begin{minted}{coq}
+Print Visibility.
+\end{minted}
+
+One thing to point out from the output of this command is the fact that boolean equality of two numbers,
+recognized as the function \mintinline{coq}{eqb}, is not expressed as \mintinline{coq}{==} or 
+\mintinline{coq}{=} but \mintinline{coq}{=?}. This is to highlight that this operator returns a boolean
+value, since unlike other programming languages, booleans are not built-in into the language. Furthermore,
+the \mintinline{coq}{=} operator is reserved for some other purpose in Coq.
+
+\section{Coq the proof assistant}
+\label{sect:coq-proof-assistant}
+
+% TODO: Talk about hypothesis and thesis
+
+Besides the commands that allow you to interface with the programming language, Coq also offers commands
+with which you can define theorems and prove them. In fact, the commands \mintinline{coq}{Theorem}, 
+\mintinline{coq}{Lemma} and \mintinline{coq}{Example}, the main way in which you interact with the 
+theorem proving side of Coq, are all equivalent with one another. The different names are simply for the 
+developers to classify the properties they're trying to prove as they see fit.
+
+Consider the following proposition. Pay attention to how we now use \mintinline{coq}{:} to separate the 
+proposition with its name instead of \mintinline{coq}{:=} as we did in the programming language.
+
+\begin{minted}{coq}
+Example true_is_true : true = true.
+\end{minted}
+
+The proposition appears after the first \mintinline{coq}{:}, and it follows a similar syntax to 
+expressions. % Warning 1 of Cury-Howard correspondance
+After this command is executed Coq registers the proposition you want to prove and awaits for you
+to provide a proof of this proposition. We do this by entering proof mode using the 
+\mintinline{coq}{Proof} command.
+
+In proof mode, Coq shows you the proposition you have to prove as a goal. In graphical interfaces this
+is usually the proposition which appears under the horizontal line.
+
+\begin{minted}{coq}
+1 subgoal
+
+
+========================= (1 / 1)
+
+true = true
+\end{minted}
+
+The space above the horizontal line is reserved for local definitions, which are definitions that can
+only be accessed from within the proof.
+
+Inside proof mode, a new set of commands a syntax are available to us to construct the proof. These are
+called \emph{tactics}. For example, to prove the goal \mintinline{coq}{true = true} we'd use the 
+\mintinline{coq}{reflexivity} tactic, which concludes an equality if both sides are the same. This is
+exactly the case for this goal, which has \mintinline{coq}{true} on both sides.
+
+Once the goal has been proven you can exit proof mode using the \mintinline{coq}{Qed} command. Therefore,
+a theorem and its proof would look like this
+
+\begin{figure}[!ht]
+\begin{minted}{coq}
+Example true_is_true : true = true.
+Proof.
+  reflexivity.
+Qed.
+\end{minted}
+\label{lst:true-is-true}
+\end{figure}
+
+This example isn't terribly exciting. In general we're more interested if we can prove a property for a
+bigger set of values, not just one. To achieve this in Coq we use the \mintinline{coq}{forall} 
+keyword, which has a similar syntax to that of function application.
+% Warning 2 of Cury-Howard correspondance
+
+\begin{figure}[!ht]
+\begin{minted}{coq}
+Example bool_refl' : forall b : bool, b = b.
+\end{minted}
+\label{lst:bool-eq-refl}
+\end{figure}
+
+If we enter proof mode, the goal is now \mintinline{coq}{forall b : bool, b = b}. We can't conclude this
+proof with \mintinline{coq}{reflexivity}, since the goal is not an equality, it has a quantifier 
+beforehand. What we'd like to say is that the proof is the same regardless of our choice of 
+\mintinline{coq}{b}. In Coq we express this by introducing an arbitrary value \mintinline{coq}{b} and
+proving the theorem for that \mintinline{coq}{b}. This is done through the \mintinline{coq}{intros} 
+tactic.
+
+\begin{minted}{coq}
+Proof.
+  intros b.
+  reflexivity.
+Qed.
+\end{minted}
+
+Proving something for all elements of a type is pretty powerful, but usually we're only interested in
+proving things for elements which satisfy certain properties. To do this we make use of implication,
+written as \mintinline{coq}{->}.
+\begin{figure}[!ht]
+\begin{minted}{coq}
+Example bool_eq_sym' : forall b b' : bool, b = b' -> b' = b.
+\end{minted}
+\label{lst:bool-eq-sym}
+\end{figure}
+
+To start the proof we introduce the variables \mintinline{coq}{b} and \mintinline{coq}{b'} with 
+\mintinline{coq}{intros} as before. This leaves us in the following state.
+
+\begin{minted}{coq}
+1 subgoal
+
+b, b' : bool
+
+========================= (1 / 1)
+
+b = b' -> b' = b
+\end{minted}
+
+To proceed, we use \mintinline{coq}{intros} again.
+
+\begin{minted}{coq}
+1 subgoal
+
+b, b' : bool
+eq_b_b' : b = b'
+
+========================= (1 / 1)
+
+b' = b
+\end{minted}
+
+What we have introduced this time under the name \mintinline{coq}{eq_b_b'} is not a value, but the
+evidence that the proposition \mintinline{coq}{eq_b_b'} is true. We can later use that evidence with
+other tactics, like \mintinline{coq}{rewrite}, which takes an equality and rewrites all appearances of
+the expression on the left side of the \mintinline{coq}{=} with that on the right side of the equality.
+
+\begin{minted}{coq}
+1 subgoal
+
+b, b' : bool
+eq_b_b' : b = b'
+
+========================= (1 / 1)
+
+b' = b'
+\end{minted}
+
+At this point we can conclude the proof with the \mintinline{coq}{reflexivity} tactic.
+
+\begin{minted}{coq}
+Example bool_eq_sym' : forall b b' : bool, b = b' -> b' = b.
+Proof.
+  intros b b'.
+  intros eq_b_b'.
+  rewrite eq_b_b'.
+  reflexivity.
+Qed.
+\end{minted}
+
+The dual of the universal quantifier \mintinline{coq}{forall} is the existential quantifier
+\mintinline{coq}{exists}, which states that there is a value of one type which satisfies the specified
+proposition.
+
+\begin{minted}{coq}
+Example has_zero : exists n: nat, n = 0.
+\end{minted}
+
+When proving a goal with an \mintinline{coq}{exists}, Coq expects you to provide a value with the 
+equally-named \mintinline{coq}{exists} tactic, and show that the property holds for the given value.
+
+\begin{minted}{coq}
+Proof.
+  (* Goal is [exists n : nat, n = 0.] *)
+  exists 0. 
+  (* Goal is [0 = 0.] *)
+  reflexivity.
+Qed.
+\end{minted}
+
+% However, in mathematics this is not the only approach to prove these kinds of theorems. It's also common
+% to use \emph{reductio ad absurdum}, by attempting to prove that the proposition is false and failing to
+% do so. However, this type of reasoning is not allowed in Coq, since it's not constructive. That is, if
+% Coq allowed these types of arguments we could prove the existence of elements which followed one 
+% property, but be unable 
+
+In these proofs so far, we've treated all elements of a type the same way, not making a distinction on
+how they were constructed. However, for some proofs it's necessary to make this distinction.
+
+\begin{minted}{coq}
+Theorem negb_involutive : forall b : bool, negb (negb b) = b.
+\end{minted}
+
+To prove this statement, we need to show that it holds true for both \mintinline{coq}{true} and 
+\mintinline{coq}{false}. To do so we use the \mintinline{coq}{destruct} tactic, which takes a term as
+an argument and creates as many subgoals as constructors it has. In each of these subgoals, the term
+has been replaced by one of its constructors. Therefore, \mintinline{coq}{destruct} allows us to prove
+that a proposition is true depending on how the term was constructed.
+
+In this case, the first subgoal asks us to proof the following \mintinline{coq}{negb (negb true) = true}.
+We can use the \mintinline{coq}{simpl} tactic to ask Coq to simplify the goal, for example by executing
+the \mintinline{coq}{negb} function through its definition. This leaves us with 
+\mintinline{coq}{true = true}, which we can prove through the \mintinline{coq}{reflexivity} tactic. The
+same argument holds for the second subgoal
+
+\begin{minted}{coq}
+Proof.
+  intros b. destruct b.
+  - simpl.
+    reflexivity.
+  - simpl.
+    reflexivity. 
+Qed.
+\end{minted}
+
+As a matter of fact, the \mintinline{coq}{true = true} goal is something we already proved in the
+\hyperref[lst:true-is-true]{\mintinline{coq}{true_is_true}} example before. We could reuse this proof
+by using the \mintinline{coq}{apply} tactic instead, which receives the name of a proposition previously
+defined and attempts to fit it into the current goal, by trying to infer the values of quantified 
+variables. For example, we could have also used the 
+\hyperref[lst:bool-eq-refl]{\mintinline{coq}{bool_eq_refl'}} theorem, and Coq would have set the value of
+\mintinline{coq}{b} to \mintinline{coq}{true}.
+
+The \mintinline{coq}{apply} tactic also works if the proposition to apply is part of an implication.
+If we have a lemma \mintinline{coq}{h: P -> Q} and we need to prove \mintinline{coq}{Q}, we can use
+\mintinline{coq}{apply h}, which will change the goal to \mintinline{coq}{P}, since if we're able to
+prove \mintinline{coq}{P} then we can prove \mintinline{coq}{Q} by using \mintinline{coq}{h}. An example
+of such a situation would be using the previously defined 
+\hyperref[lst:bool-eq-sym]{\mintinline{coq}{bool_eq_sym'}}.
+
+\begin{minted}{coq}
+Lemma  h': forall b: bool, b = true -> true = b.
+Proof.
+  intros b b_true.
+  (* Goal is [true = b] *)
+  apply bool_eq_sym'.
+  (* Goal is [b = true] *)
+  apply b_true.
+Qed.
+\end{minted}
+
+Notice how we conclude this example by applying a proof which lives as a local definition. The apply 
+tactic is not restricted to the theorems available to Coq, but also to those arising from the context
+of the proof.
+
+Negation in Coq is not a first-class feature, but it's implemented in terms of implication and 
+\mintinline{coq}{False}. The \mintinline{coq}{False} proposition represents a proposition which cannot be
+proven, its dual is the \mintinline{coq}{True} proposition, for which there is one trivial proof called
+\mintinline{coq}{I}.
+
+Then, the negation of a proposition \mintinline{coq}{P}, written as \mintinline{coq}{~ P}, is defined as
+\mintinline{coq}{P -> False}. The idea behind it is that if having a proof of \mintinline{coq}{P} allows
+you to derive a proof of \mintinline{coq}{False} then you couldn't derive a proof for \mintinline{coq}{P}
+in the first place, since there is no proof for \mintinline{coq}{P}.
+
+The same way we have \mintinline{coq}{reflexivity} to end a proof if the goal is an equality and both
+sides of the equality are constructed with the same constructors, the \mintinline{coq}{discriminate}
+tactic allows us to end a proof if given one hypothesis of an equality which can be shown to be false
+since both sides use different constructors.
+
+For instance, consider the following proposition.
+\begin{minted}{coq}
+Example one_not_zero : ~ (1 = 0).
+Proof.
+  unfold not. (* Transforms [~ (1 = 0)] into [(1 = 0) -> False] *)
+  intros h.   (* Introduces hypothesis [h: 1 = 0] *)
+  discriminate h. (* Concludes that hypothesis h cannot be obtained *)
+Qed.
+\end{minted}
+
+
+{\color{red} TODO: Introduce the \mintinline{coq}{exfalso} tactic.}
+
+
+
+\section{The Curry-Howard correspondence}
+
+In the field of programming languages and type theory, the Curry-Howard correspondence states that there
+exists an isomorphism between programs and proofs, and types and propositions. So far we've treated Coq
+the programming language and Coq the proof assistant as two different things, but in fact, they're the 
+same. Whenever we wrote \mintinline{coq}{Example} or \mintinline{coq}{Theorem}, we could have used
+\mintinline{coq}{Definition} instead!
+
+\begin{minted}{coq}
+Definition true_is_true' : true = true.
+Proof.
+  reflexivity.
+Qed.
+\end{minted}
+
+The type of \mintinline{coq}{true_is_true} is in fact the proposition we're trying to prove, and its 
+value is the proof built in proof mode. In fact, not even proof mode was necessary. We could have 
+specified the ``proof object'' directly after the \mintinline{coq}{:=}. This is made apparent if we
+ask Coq to print one of our prior proofs.
+
+\begin{minted}{coq}
+Print has_zero. 
+(* has_zero = 
+   ex_intro (fun n : nat => n = 0) 0 eq_refl
+        : exists n : nat, n = 0 *)
+\end{minted}
+
+Here we see that we construct a proof value using the \mintinline{coq}{ex_intro} constructor, with the
+following parameters:
+\begin{itemize}
+    \item \mintinline{coq}{fun n : nat => n = 0} is a function which takes a \mintinline{coq}{nat} and returns the proposition \mintinline{coq}{n = 0}
+    \item 0 is the witness of the \mintinline{coq}{exists n : nat, n = 0}, that is, the value of \mintinline{coq}{n} for which the property is true
+    \item \mintinline{coq}{eq_refl} is the proof that \mintinline{coq}{0 = 0}. This is what gets applied when we use the \mintinline{coq}{reflexivity} tactic!
+\end{itemize}
+
+The feature which allows us to use Coq as a theorem prover is its type system. In fact, Coq's type system
+is not like those of other general purpose language, since it allows the definition of dependent types. A
+dependent type is a type whose definition depends on a value. This allows us to make types such as 
+\mintinline{coq}{Vector.t nat 10}, of all lists of length 10, or more importantly, since propositions are
+types it allows us to refer to individual values in our propositions, instead of just types.
+
+The \mintinline{coq}{forall} keyword is like function application, with the difference that it allows the
+return type to use the argument's value. Otherwise, \mintinline{coq}{forall n : nat, nat} is the same as
+\mintinline{coq}{nat -> nat}.
+
+\begin{minted}{coq}
+Definition a : forall n: nat, nat := add 1.
+Check a. (* nat -> nat *)
+\end{minted}
+
+The \mintinline{coq}{True} and \mintinline{coq}{False} properties are in fact defined with \mintinline{coq}{Inductive}. The definition of \mintinline{coq}{False} is equivalent to our previous definition of 
+\hyperref[lst:void]{\mintinline{coq}{void}}, an inductive type with no constructors, and 
+\mintinline{coq}{True} is an inductive type with one constructor, \mintinline{coq}{I}. Intuitively it 
+makes sense, since there is not proof of falsehood, therefore it has no constructors, and you can always
+prove \mintinline{coq}{True} without needing any extra information, hence the constructor without 
+arguments.
+
+% TODO: Add bibtex reference to https://softwarefoundations.cis.upenn.edu/lf-current/Basics.html
