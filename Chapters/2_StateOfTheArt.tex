@@ -1,4 +1,78 @@
 \chapter{State of the art}
 \label{cap:state-of-the-art}
 
-Something something
+A block-chain implements a distributed ledger, a database of transactions
+between entities which is not hosted by any central authority but shared
+among multiple computers in a network. The name comes from the mechanism
+in which these transactions are stored: groups of transactions called
+``blocks'' are linked together forming a ``chain''. Once a block of 
+transactions has been recorded in the block-chain, no further changes can
+be applied to it without needing to change all subsequent blocks, which in
+real world scenarios is made to be unfeasible, thus ensuring the immutability
+and transparency of the data.
+
+Blockchain technology has diverse applications, the most famous one being
+as a form of currency. One of these use cases of particular interest is 
+implementing smart contracts. Smart contracts are self-executing contracts
+whose terms are directly expressed as code. They run on a blockchain 
+network and automatically execute actions when predefined conditions are
+met, without the need to rely on a trusted intermediary since their
+execution is verified by the decentralized network. The usage of smart
+contracts has enabled the development of new and innovative decentralized
+applications (DApps).
+
+Ethereum is a prominent blockchain platform which stands out for its robust
+support for smart contracts through the Ethereum Virtual Machine (EVM). The
+EVM is a runtime environment that enables the execution of code written in
+Ethereum's native language, Solidity. Solidity code is compiled into EVM 
+bytecode, which is composed of instructions operating on a stack-based 
+virtual machine. Each operation performed in the EVM incurs a cost measured 
+in gas, Ethereum's unit of computational cost. This cost is covered by the 
+user interacting with the smart contract and is payed in the Ethereum 
+blockchain's native currency, of the same name. This serves as a mechanism 
+to prioritize and meter the execution of code in the network, which ensures 
+that the network remains efficient and secure, by encouraging developers to 
+be mindful of their use of resources. This contributes to preventing spam 
+attacks and resource abuse, ensuring the stability and sustainability of the 
+Ethereum ecosystem.
+
+The GASOL project implements a superoptimizer for EVM bytecode. Superoptimization 
+is a compilation technique that searches, for a given jump-free sequence of 
+instructions, a semantically equivalent sequence of instructions which is optimal
+by some metric, like memory usage or execution cost. Since the superoptimizer 
+requires these sequences of instructions to not have bifurcations, to optimize a
+whole program it first extracts all the sequences of instructions which do not perform
+jumps and optimizes those separately before reassembling them back together. 
+In doing so, it remembers which conditions triggered those jumps so it can gain more
+information on which states of the program are possible for each section.
+
+The Coq proof assistant has been used extensively to verify projects in the industry.
+\begin{itemize}
+    \item \verb|CompCert| \cite{CompCert}, a certified compiler for the majority of the C language.
+    \item \verb|Fiat-Crypto| \cite{FiatCryptoSP19}, a tool for cryptographic primitive code generation.
+    \item \verb|ConCert| \cite{ConCert}, a framework for smart contract verification in Coq.
+    \item \verb|Iris| \cite{Iris}, a higher-order concurrent separation logic framework, used for reasoning about safety of concurrent programs, as the logic in logical relations, to reason about type-systems, data-abstraction, \dots. It has been used in other projects such as RustBelt \cite{RustBelt}.
+    \item \verb|Cosette| \cite{Cosette}, an automated prover for checking equivalences of SQL queries.
+\end{itemize}
+
+%% TODO: Describe what are octogonal constraints and available algorithms
+The constraints we are interested on can be reduced to a special type of constraint called
+octagonal constraints. Octagonal constraints are constraints of the type ${\pm x \pm y \le d}$ 
+or $\pm x \le d$ where $x$ and $y$ are integer variables. In general we assume that $d$ is an
+integer, since otherwise we could exploit the fact that the left hand side of both types of
+constraints result in integers to derive a more strict inequality using $\lfloor d \rfloor$
+instead. This new constraint $\pm x \pm y \le \lfloor d \rfloor$ is called the \emph{tightened}
+constraint of $\pm x \pm y \le d$.
+
+Octagonal constraints have been studied in depth in the literature. In particular, efficient
+algorithms have been derived to compute the transitive closure of a set of constraints. The
+transitive closure of a set of constraints $C$ is a set of constraints $C'$ where for every
+pair of variables $x$ and $y$ defined in the constraints of $C$ we have a $d$ such that
+the constraint $x + y \le d$ is in $C'$ and a $d'$ such that $x \le d'$ is in $C'$. Furthermore,
+the choices of $d$ and $d'$ are the smallest possible such that they can still be derived from
+the constraints in $C$.
+
+In \cite{TransitiveClosure} an $O(n^3\log{n})$ algorithm is described to compute the tightened 
+transitive closure of a set of octagonal constraints where $n$ is the number of integer variables. The 
+same article cites \cite{HarveyStuckey} for providing an $O(n^4)$ algorithm which relies on the 
+application of successive rules to iteratively construct the transitive closure.

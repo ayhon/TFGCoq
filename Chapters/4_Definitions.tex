@@ -12,10 +12,11 @@
 
 % X Talk about the trivial implication checker
 
-The purpose of \mintinline{coq}{FORVES} is to certify that two sequences of EVM instructions are semantically
-equivalent. To do so we need to define what we mean by "semantic equivalence". We can represent a
-program as a function which transform state. By state we mean an assignment of variables to values.
-In generic programming languages state is usually represented with a map or a dictionary.
+The purpose of \mintinline{coq}{FORVES} is to certify that two sequences of EVM instructions are 
+semantically equivalent. To do so, we need to define what we mean by semantic equivalence.
+We can represent a program as a function which transform state where by state we mean an assignment of 
+variables to values. In generic programming languages state is usually visualized with a map or a
+dictionary.
 
 \begin{minted}{python}
 state = {
@@ -24,17 +25,17 @@ state = {
 }
 \end{minted}
 
-The reason we use maps to represent these objects is that they're memory efficient, since their 
+The reason we use maps to represent these objects is that they are memory efficient, since their 
 cost in efficiency is proportional to the number of elements they assign. However, the canonical 
 way in which we represent assignments in mathematics is through functions, and this is also the 
-method preferred by Coq since it eases its use in proofs. Therefore, the state our programs 
+method preferred by Coq since it eases its use in proofs. Therefore, the state our program's 
 transform can be though of as a function with the signature \mintinline{coq}{Variable -> Value}.
 
 The Ethereum Virtual Machine is a stack-based virtual machine with access to memory. Therefore,
-variables can be either regions of memory or elements which have been pushed into the stack. Since
-the Ethereum Virtual Machine is a low-level virtual machine, it works on the byte level, usually
-by grouping them in sequences of 32 called words. These words cover all possible values our 
-variables can take.
+variable values can be either regions of memory or elements which have been pushed into the stack. 
+Since the Ethereum Virtual Machine is a low-level virtual machine, it works on the byte level, usually
+by grouping them in sequences of 32 called words. These words cover all possible values our variables 
+can take.
 
 \begin{minted}{coq}
 Definition EVMWord := word EVMWordSize. 
@@ -43,28 +44,33 @@ Definition EVMWord := word EVMWordSize.
                =               128             *)
 \end{minted}
 
-Therefore, we can define the state of an EVM application to be a function from \mintinline{coq}{nat} to \mintinline{coq}{EVMWord},
-which is precisely how they're defined in \verb|constraints.v|.
+Therefore, we can define the state of an EVM application to be a function from \mintinline{coq}{nat} 
+to \mintinline{coq}{EVMWord}, which is precisely how they are defined in \verb|constraints.v|.
 
 \begin{minted}{coq}
 Definition assignment : Type := nat -> EVMWord.
 \end{minted}
 
-Since a program is just a function of type \mintinline{coq}{assignmet -> assignment} we can define semantic equality
-through the principle of function extensionality, which says that if for all possible inputs two
-functions output the same values then the functions must be the same.
+When a program is executed in the EVM a new stack is created for its execution, destroying it at the
+end with whichever values it had left over. To make changes persistent these need to be assigned to
+memory. We can then represent our EVM programs as functions of type
+\mintinline{coq}{assignmet -> assignment} where \mintinline{coq}{assignment} represents the status of
+memory. We can think of our variables as the regions in memory we are interested about.
+
+Since a program is then just a function we can define semantic equality through the principle of
+function extensionality, which says that if for all possible inputs two functions output the same
+values then the functions must be the same.
 
 \begin{minted}{coq}
 Axiom functional_extensionality : forall {X Y: Type}
                                     {f g : X → Y},
   (forall (x:X), f x = g x) → f = g.
 \end{minted}
-% TODO: Explain implicit arguments.
 
-Functional extensionality is not native to Coq, since it can't be proven directly. Therefore, if we
-wanted to use it we'd need to add it as an axiom. Fortunately, adding this axiom is known to keep
-Coq's logic consistent, which means that we can't prove a proposition simultaneously to be true and 
-false. Since it's harmless to add it, it's defined in Coq's standard library, under 
+Functional extensionality is not native to Coq, since it cannot be proven directly. Therefore, if we
+wanted to use it we would need to add it as an axiom. Fortunately, adding this axiom is known to keep
+Coq's logic consistent, which means that we cannot prove a proposition simultaneously to be true and 
+false. Since it is harmless to add it, it is defined in Coq's standard library, under 
 \mintinline{coq}{Coq.Logic.FunctionalExtensionality}, althought not in the form described before. Coq's functional
 extensionality axiom is tweaked to also work with functions which return dependent types. Our 
 \mintinline{coq}{functional_extensionality} proposition is then derived from this axiom.
@@ -75,43 +81,48 @@ Axiom functional_extensionality_dep : forall {A} {B : A -> Type},
   (forall x, f x = g x) -> f = g.
 \end{minted}
 
-This is the general approach used in \mintinline{coq}{FORVES} to prove that two programs are equivalent. A set of
-optimizations are defined under the \mintinline{coq}{optimizations/} folder. Each optimization defines a transformation
-in the code and proves that the optimization is valid, that is, that the transformed code is semantically
-equivalent to the original one. This works really well for some transformations, however it can be 
-needlessly restrictive in some cases. This is because, in a program, not all states may be obtainable at
-some point in the code, or we may not care about preserving all state changes. Consider the following two
-snippets, for example.
+Unfortunately, proceeding with this approach is unfeasible since testing all possible assignments for
+the complete program is too complex. Therefore, the approach followed by \verb|FORVES| is different.
+Instead, it records the effects of the execution of both programs on a generic model of the state and
+simplifies  them to a canonical state to see if they're equivalent, by applying simplification rules.
+Furthermore, \verb|FORVES| doesn't test the transformation performed by the whole program, but only of 
+jump-free sequences of instructions. This had the added benefit of not having to worry about 
+conditionals with the added cost that we can no longer make any assumptions about the stack. However 
+this is easily fixed by extending our \mintinline{coq}{assignment} definition to also include 
+variables representing elements in the stack, not only offsets in memory.
 
-\begin{minted}{c}
-if(x>y) f(x);
-else f(y);
-\end{minted}
-
-\begin{minted}{c}
-z = max(x,y);
-f(z);
-\end{minted}
-
-They appear to do the same, but actually the second snippet modifies the state of \mintinline{coq}{z} while the first one
-doesn't. This is not relevant if \mintinline{coq}{z} is a local variable or if it's no longer used in the rest of the code,
-but we'd need this assumption to hold. In conclussion, we don't need all output states to be equal.
-
-Furthermore, we may also not need to consider all states, since not all states are reachable at a particular
-point in the code. For instance, if a piece of code is only reachable through an if condition which checks
-for an invariant, we can assume that the invariant holds at the beginning of this piece of code. For
-example, in the following snippet any state at A must hold that $x > y$.
+Furthermore, we may also not need to consider all states, since not all states are reachable at a 
+particular point in the code. For instance, if a piece of code is only reachable through an if 
+condition which checks for an invariant $P$, we can assume that the invariant holds for the final
+assignment. Consider the following snippets of code.
 
 \begin{minted}{c}
 if(x > y){
-    // A
+    z = x-y;
+}
+\end{minted}
+\begin{minted}{c}
+if(x > y){
+    z = abs(x-y);
 }
 \end{minted}
 
-Threfore, for some optimizations we may want to ask for some special condition. For example, consider the
-optimization \mintinline{coq}{add_zero}, which says that if we have \mintinline{coq}{ADD x0 x1} and \mintinline{coq}{x0} is zero then this is equivalent to
-just having \mintinline{coq}{x1}. This optimization can only be applied if we have the condition \mintinline{coq}{x0 = 0}, however this 
-condition may not be found in the context in this form. Consider for example the following snippet.
+The result of executing the section inside the \mintinline{c}{if} statement in the first snippet is 
+setting the variable \mintinline{coq}{z} to \mintinline{coq}{x-y}, while in the second snippet it's
+set to \mintinline{coq}{abs(x-y)}. Both of these effects are not equivalent if we consider an initial
+state of \mintinline{js}{{x:0, y:1}} since then ${x-y} = -1 \ne 1 = \lvert-1\rvert$. However,
+the condition in the \mintinline{coq}{if} statement discards these types of states. We can represent
+this by making the condition in the \mintinline{coq}{if} statement a requirement for the model to 
+follow.
+
+Therefore, for some optimizations we may want to ask for some special condition to be applied.
+For example, in the previous example we may consider simplifying \mintinline{coq}{abs(z)} to
+\mintinline{coq}{z} if we're able to show that \mintinline{coq}{z > 0}. Sometimes, these conditions
+are not explicitly stated in the context, but can instead be derived from it. Consider an optimization
+\mintinline{coq}{add_zero}, which says that if we have \mintinline{coq}{x0 + x1} and 
+\mintinline{coq}{x0} is zero then this is equivalent to just having \mintinline{coq}{x1}. This 
+optimization can only be applied if we have the condition \mintinline{coq}{x0 = 0}. Now, consider the
+following snippet.
 
 \begin{minted}{c}
 if (x > 0) f();
@@ -121,14 +132,15 @@ else {
 }
 \end{minted}
 
-When we reach the \mintinline{coq}{else} branch what we have in our context is that $x \le 0$ and $x \ge 0$, not $x = 0$.
-However, we know that having $x \le 0$ and $x \ge 0$ implies having the condition we need. Therefore, to 
-apply the optimization \mintinline{coq}{add_zero} we need to be able to show that the current contextual information we
-have implies the conditions we need.
+When we reach the \mintinline{coq}{else} branch the contextual information we've recorded is that 
+$x \le 0$ and $x \ge 0$, but not $x = 0$. However, we know that having $x \le 0$ and $x \ge 0$ implies 
+$x = 0$. Therefore, to apply the optimization \mintinline{coq}{add_zero} we need to be able to show 
+that the current contextual information we have implies the conditions we need, not that it's present
+explicitly.
 
-How do we represent this in Coq? For starters, we need to define what type of contextual information are 
-we working with. Since the Ethereum Virtual Machine works at the byte level, all its comparisons are 
-arithmetic, which means the only conditions we're interested in are equalities and inequalities.
+How do we represent this in Coq? For starters, we need to define what type of contextual information
+are we working with. Since the Ethereum Virtual Machine works at the byte level, all its comparisons
+are arithmetic, which means the only conditions we are interested in are equalities and inequalities.
 
 \begin{minted}{coq}
 Inductive constraint : Type :=
@@ -137,8 +149,9 @@ Inductive constraint : Type :=
   | C_LE (l r : cliteral).
 \end{minted}
 
-We call \mintinline{coq}{cliteral} to the elements we compare. In general, we're interested in comparisons between
-variables, constants and variables offset by a constant. These are what our \mintinline{coq}{cliteral}s represent.
+We call \mintinline{coq}{cliteral}s to the elements we compare. In general, we are interested in 
+comparisons between variables, constants and variables offset by a constant. These are what our 
+\mintinline{coq}{cliteral}s represent.
 
 \begin{minted}{coq}
 Inductive cliteral : Type :=
@@ -148,17 +161,18 @@ Inductive cliteral : Type :=
 \end{minted}
 
 Armed with these definitions we can start to represent what we mean by contextual information. This 
-information is obtained from the optimizer when it's performing the static analysis of the program, in 
-particular from the branches in the code. After each conditional jump, if the jump was taken we can add
-the condition tested to the context, and if it wasn't taken we add the negation of the condition. If we have
-multiple nested conditions, these can be combined logically by using an \mintinline{coq}{and} connective. It could also 
-happen that one same region of the code is reachable from different jump instructions, which themselves
-carry different contextual information. This is the case, for example, with function calls. In this case
-we can combine the contextual information through an \mintinline{coq}{or} connective. 
+information is obtained from the optimizer when it is performing the static analysis of the program, 
+in particular from the branches in the code. After each conditional jump, if the jump was taken we 
+can add the condition tested to the context, and if it was not taken we add the negation of the 
+condition. If we have multiple nested conditions, these can be combined logically by using an 
+\mintinline{coq}{and} connective. It could also happen that one same region of the code is reachable 
+from different jump instructions, which themselves carry different contextual information. This is the 
+case, for example, with function calls. In this case we can combine the contextual information through 
+an \mintinline{coq}{or} connective. 
 
-To ease the representation of contextual information, we represent these combined conditions in disjunctive
-normal form. In code, this is modeled as a list of lists, where the inner lists represent conjunctions and 
-the outer list represents one big disjunction.
+To ease the representation of contextual information, we represent these combined conditions in 
+disjunctive normal form. In code, this is modeled as a list of lists, where the inner lists represent 
+conjunctions and the outer list represents one big disjunction.
 
 \begin{minted}{coq}
 Notation conjunction := (list constraint).
@@ -166,19 +180,21 @@ Notation disjuntion := (list conjunction).
 Definition constraints : Type := disjuntion.
 \end{minted}
 
-The type \mintinline{coq}{constraints} represents the context that's available at one point in the code. What we want to
-be able to do is check if some set of constraints imply a different one. But in order to define this we
-first need to define what it means that a set of constraints imply another.
+The type \mintinline{coq}{constraints} represents the context that is available at one point in the 
+code. What we want to be able to do is check if some set of constraints imply a different one. But in 
+order to define this we first need to define what it means that a set of constraints imply another.
 
-In logic, implication is usually expressed by the symbol $\Rightarrow$, although the symbol $\subset$ is
-sometimes also used for the same purpose. This last symbol sheds more light into how we might want to
-define implication in this case.
+In logic, implication is usually expressed by the symbol $\rightarrow$, although the symbol $\subset$ 
+is sometimes also used for the same purpose. This last symbol sheds more light into how we might want 
+to define implication in this case.
 
-For any state, a condition \mintinline{coq}{c} may or may not hold. We say that a model satisfies a single constraint if
-after substituting the variables by the values assigned to them by the model the condition holds.
+For any state, a condition \mintinline{coq}{c} may or may not hold. We say that a model satisfies a 
+single constraint if after substituting the variables by the values assigned to them by the model the 
+condition holds.
 
 \begin{minted}{coq}
-Definition satisfies_single_constraint (model: assignment) (c: constraint) : bool :=
+Definition satisfies_single_constraint 
+    (model: assignment) (c: constraint) : bool :=
   let get_value := cliteral_to_nat model in 
   match c with
   | C_EQ l r => (get_value l =? get_value r)%N
@@ -191,15 +207,17 @@ We can extend this definition to conjunctions of constraints by requiring that t
 constraints at the same time.
 
 \begin{minted}{coq}
-Definition satisfies_conjunction (model: assignment) (conj: conjunction): bool :=
+Definition satisfies_conjunction 
+    (model: assignment) (conj: conjunction): bool :=
   forallb (satisfies_single_constraint model) conj.
 \end{minted}
 
-Finally, we extend the definition to also hold for generic combinations of constraints in disjunctive normal
-form by specifying that at least one conjunction must hold for the whole formula to be true.
+Finally, we extend the definition to also hold for generic combinations of constraints in disjunctive 
+normal form by specifying that at least one conjunction must hold for the whole formula to be true.
 
 \begin{minted}{coq}
-Definition satisfies_constraints (model: assignment) (cs: constraints): bool :=
+Definition satisfies_constraints 
+    (model: assignment) (cs: constraints): bool :=
   forallb (satisfies_conjunction model) cs.
 \end{minted}
 
@@ -207,46 +225,52 @@ Now, we can take inspiration from the $\subset$ notation of implication to defin
 constraints. We say that a set of constraints in disjunctive normal form \mintinline{coq}{cs} implies a constraints \mintinline{coq}{c} if,
 for every model which satisfies \mintinline{coq}{cs}, it also satisfies \mintinline{coq}{c}. That is, if $State_{\texttt{cs}}$ is the set of
 all states which satisfy $cs$ and $State_{\texttt{c}}$ is the set of all states which satisfy $c$, then
-$State_{\texttt{cs}} \subset State_{\texttt{c}}$. In Coq, we'd write
+$State_{\texttt{cs}} \subset State_{\texttt{c}}$. In Coq, we would write
 
 \begin{minted}{coq}
-forall (model: assignment),
-    is_model cs model = true -> satisfies_single_constraint model c = true
+Definition imply(cs: constraints)(c: constraint) := forall (m: assignment),
+  satisfies_constraints m cs = true -> satisfies_single_constraint m c = true.
 \end{minted}
 
-We can finally define what we mean by an implication checker. In the end, an implication checker is just
-a function which takes some constraints as contextual information, which we'll call the hypothesis, and a
-constraint we'll call the thesis, and returns the boolean true if it's able to show that the hypothesis
-imply the thesis.
+A similar definition follows for conjunctions instead of terms in DNF.
+\begin{minted}{coq}
+Definition conj_imply(cs: conjunction)(c: constraint) := forall (m: assignment),
+  satisfies_conjunction m cs = true -> satisfies_single_constraint m c = true.
+\end{minted}
 
-In a different programming language we'd implement implication checkers as functions with the signature
-\mintinline{coq}{constaints -> constraint -> bool}, but in Coq we can go further and encode the implication checker's
-invariant as part of the type.
+We can finally define what we mean by an implication checker. In the end, an implication checker is 
+just a function which takes some constraints as contextual information, which we will call the 
+hypothesis, and a constraint we will call the thesis, and returns the boolean true if it is able to 
+show that the hypothesis imply the thesis.
+
+In a different programming language we would implement implication checkers as functions with the 
+signature \mintinline{coq}{constaints -> constraint -> bool}, but in Coq we can go further and encode 
+the implication checker's invariant as part of the type.
 
 \begin{minted}{coq}
 Record imp_checker: Type := 
   { imp_checker_fun: constraints -> constraint -> bool
   ; imp_checker_snd: forall (cs: constraints) (c: constraint),
-      imp_checker_fun cs c = true -> forall (model: assignment),
-          satisfies_constraints model cs = true -> satisfies_single_constraint model c = true
+      imp_checker_fun cs c = true -> imply cs c
   }.
 \end{minted}
 
 An implication checker is not just the function which checks for the implication, but also the proof of
-that if the checking function says the implication is true, then it's a fact that the hypothesis imply the
-thesis.
+that if the checking function says the implication is true, then it is a fact that the hypothesis 
+imply the thesis.
 
-To implement the implication checker, we need to handle the constraints in disjunctive normal form. However,
-we observe that in general we can consider the different conjunctions of constraints independently. The
-intuition behind it is that, if we need to prove that $A \vee B \Rightarrow C$, then we need to prove $A \Rightarrow C$ and 
-$B \Rightarrow C$ separately. This can actually be easily proven by using the identities $A \Rightarrow B = \neg A \vee B$ and
-the distributive property of $\wedge$ and $\vee$.
+To implement the implication checker, we need to handle the constraints in disjunctive normal form. 
+However, we observe that in general we can consider the different conjunctions of constraints 
+independently. The intuition behind it is that, if we need to prove that $A \vee B \rightarrow C$, 
+then we need to prove $A \rightarrow C$ and $B \rightarrow C$ separately. This can actually be easily 
+proven by using the identities $A \rightarrow B \equiv \neg A \vee B$ and the distributive property of 
+$\wedge$ and $\vee$.
 
 \begin{align*}
-A \vee B \Rightarrow C &= \neg (A \vee B) \vee C = \\
-                       &= \neg A \wedge \neg B \vee C = \\
-                       &= (\neg A \vee C)\wedge (\neg B \vee C) = \\
-                       &= (A \Rightarrow C)\wedge (B \Rightarrow C) = \\
+A \vee B \rightarrow C &\equiv \neg (A \vee B) \vee C \\
+                       &\equiv \neg A \wedge \neg B \vee C \\
+                       &\equiv (\neg A \vee C)\wedge (\neg B \vee C) \\
+                       &\equiv (A \rightarrow C)\wedge (B \rightarrow C)
 \end{align*}
 
 % ~ (A \/ B) \/ C = ~A /\ ~B \/ C = (~ A \/ C) /\ (~ B \/ C)
@@ -258,19 +282,21 @@ checker and vice versa.
 \begin{minted}{coq}
 Record conj_imp_checker: Type := 
   { conj_imp_checker_fun: conjunction -> constraint -> bool
-    ; conj_imp_checker_snd: forall (cs: conjunction) (c: constraint),
-    conj_imp_checker_fun cs c = true -> forall (model: assignment),
-    satisfies_conjunction model cs = true -> satisfies_single_constraint model c = true
+  ; conj_imp_checker_snd: forall (cs: conjunction) (c: constraint),
+      conj_imp_checker_fun cs c = true -> conj_imply cs c
   }.
 \end{minted}
 
-That a \mintinline{coq}{imp_checker} can work as a \mintinline{coq}{conj_imp_checker} is obvious and not really useful, since a conjunction
-is trivially in disjunctive normal form, where there are no disjunctions. The interesting side of this 
-equivalence is the converse, showing that given a \mintinline{coq}{conj_imp_checker} we can create an \mintinline{coq}{imp_checker}. We do
-this by defining the \mintinline{coq}{mk_imp_checker} function, of signature \mintinline{coq}{conj_imp_checker -> imp_checker}.
+That a \mintinline{coq}{imp_checker} can work as a \mintinline{coq}{conj_imp_checker} is obvious and 
+not really useful, since a conjunction is trivially in disjunctive normal form, where there are no 
+disjunctions. The interesting side of this equivalence is the converse, showing that given a 
+\mintinline{coq}{conj_imp_checker} we can create an \mintinline{coq}{imp_checker}. We do this by 
+defining the \mintinline{coq}{mk_imp_checker} function, of signature 
+\mintinline{coq}{conj_imp_checker -> imp_checker}.
 
 \begin{minted}{coq}
-Program Definition mk_imp_checker (checker: conj_imp_checker): imp_checker := {|
+Program Definition mk_imp_checker 
+    (checker: conj_imp_checker): imp_checker := {|
   imp_checker_fun (cs : constraints) c := 
     match cs with
     | [] => false
@@ -279,10 +305,10 @@ Program Definition mk_imp_checker (checker: conj_imp_checker): imp_checker := {|
 |}.
 \end{minted}
 
-Since we included the implication checkers invariant inside its type, Coq won't let us finish the definition
-of this function until we have proven that this function preserves the invariant. That's why we need to use
-the \mintinline{coq}{Program} prefix to this definition, to reassure Coq that we know that the definition isn't finished 
-with just the function, and that we'll follow with the proof of the invariant.
+Since we included the implication checkers invariant inside its type, Coq wo not let us finish the definition
+of this function until we have proven that this function preserves the invariant. That is why we need to use
+the \mintinline{coq}{Program} prefix to this definition, to reassure Coq that we know that the definition is not finished 
+with just the function, and that we will follow with the proof of the invariant.
 
 As we saw before, given a conjunction implication checker we can define a more general implication checker
 by running the conjunction implication checker on each conjunction in the hypothesis and making sure they 
@@ -292,20 +318,21 @@ implication checker derived from it is sound as well. Let's look at the proof of
 We use the \mintinline{coq}{Next Obligation} command to enter in proof mode after the \mintinline{coq}{Program} definition we used before.
 
 \begin{minted}{coq}
-Next Obligation. (* {{{ *)
-  (* First we obtain the conjunction's checking function and soundness proof
+Next Obligation.
+  (* First we unfold the definition of imply and introduce the model in
+     its definition *)
+  unfold imply; intros model.
+  (* Then we obtain the conjunction's checking function and soundness proof
      from the constructor of the conjunction implication checker *)
   destruct checker as [checker checker_snd].
   (* Next Obligation automatically introduces as many terms as possible. In
-     particular, the goal it asks to proof is whether an assignment called 
-     model satisfies the constraint c given that.
-       H : the checker function we've derived says that cs imply c
-       H0: the model satisfies constraints cs (in DNF)
-     We'll rename H to full_checker__cs_imp_c. Full checker is the
-     checking function we've derived from the conjunction implication
+     particular, the goal it asks to prove is whether an assignment called 
+     model satisfies the constraint c given that:
+       H : the checker function we have derived says that cs imply c
+     We will rename H to full_checker__cs_imp_c. Full checker is the
+     checking function we have derived from the conjunction implication
      checker's *)
   rename H into full_checker__cs_imp_c.
-  generalize dependent H0.
   (* We proceed over induction on c. The base case is not reachable,
      so we discriminate. We're only left with the inductive case. *)
   induction cs as [|c' cs' IHcs']; try discriminate.
@@ -332,17 +359,17 @@ Next Obligation. (* {{{ *)
        have concluded earlier *)
     destruct cs' as [|c'' cs'']; try discriminate.
     exact (IHcs' checker__cs'_imp_c cs'_sat).
-Qed. (* }}} *)
+Qed.
 \end{minted}
 
-Thanks to this function, which we've now proven that correctly yields
+Thanks to this function, which we have now proven that correctly yields
 implication checkers from conjunction implication checkers, serves to ease the 
 development of implication checkers. To define a conjunction implication checker
 we no longer need to deal with DNF formulas, just with conjunctions. We can later
 derive the full implication checker from the conjunction one.
 
-Before we conclude this chapter, we must highlight an important fact. We've only
-required our implication checkers to be sound, but we've not said anything about
+Before we conclude this chapter, we must highlight an important fact. We have only
+required our implication checkers to be sound, but we have not said anything about
 completeness. This means that if an implication checker returns false we cannot 
 assume that the implication is in fact false. Proving completeness is quite a hard
 endeavour, and was therefore considered out of scope for this project.
@@ -359,12 +386,10 @@ thesis is in the hypothesis.
 Program Definition inclusion_conj_imp_checker: conj_imp_checker := {| 
   conj_imp_checker_fun := fun cs c => existsb (eqc c) cs
 |}.
-(* Proof left as an exercise to the reader 
-   ... *)
+(* Proof left as an exercise to the reader *)
 Definition inclusion_imp_checker := mk_imp_checker inclusion_conj_imp_checker.
 \end{minted}
 
-While we've defined our implication checkers to be best-effort, we of course would
+While we have defined our implication checkers to be best-effort, we of course would
 like to have the best implication checker we could possible have. That is the 
 purpose of the next chapter.
-

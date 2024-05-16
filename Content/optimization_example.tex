@@ -1,61 +1,145 @@
 
-Consider the following two programs.
+Before introducing an example of equivalent sequences of instructions in
+EVM bytecode we need to give a simple introduction on programming in the
+EVM to be able to follow the example. EVM instructions modify the state
+of the EVM in two main ways:
+\begin{itemize}
+    \item Manipulating the values in the stack. \\
+    In our simulation of the execution of a program this will be represented
+    by showing the state of the stack before and after the execution of the 
+    instruction. For example, consider the 
+    \textcolor{red}{\texttt{ADD}} instruction which pushes to the top of the 
+    stack the addition of its first two elements.
+    \begin{Verbatim}[commandchars=\\\{\}]
+    [x0,x1] 
+     ↓ \textcolor{red}{ADD}
+    [x0+x1]
+    \end{Verbatim}
+
+    \item Producing an effect. \\
+    An effect is any change which is not reflected in the stack but can be 
+    observed by an external process. The only instruction we are interested in
+    which produces an effect is the \textcolor{red}{\texttt{MSTORE}} 
+    instruction, which stores at the address referenced by the top element in 
+    the stack the value at the position after it. Notice that the instruction
+    besides producing an effect also manipulates the values in the stack. We
+    represent effects, if present, by putting them in parenthesis next to the 
+    state of the stack.
+    \begin{Verbatim}[commandchars=\\\{\}]
+    [x0,x1]
+     ↓ \textcolor{red}{MSTORE}
+    []   \textcolor{teal}{(MEM[x0] = x1)}
+    \end{Verbatim}
+\end{itemize}
+
+Besides \textcolor{red}{\texttt{ADD}} and \textcolor{red}{\texttt{MSTORE}} we also
+describe the following instructions.
+\begin{itemize}
+    \item \textcolor{red}{\texttt{SWAP1}} exchanges the top element in the stack with the
+    second element bellow it.
+    \begin{Verbatim}[commandchars=\\\{\}]
+    [x0,x1]
+     ↓ \textcolor{red}{SWAP1}
+    [x1,x0]
+    \end{Verbatim}
+
+    \item \textcolor{red}{\texttt{SWAP2} } exchanges the top element in the stack with the
+    second element bellow it.
+    \begin{Verbatim}[commandchars=\\\{\}]
+    [x0,x1,x2]
+     ↓ \textcolor{red}{SWAP2}
+    [x2,x1,x0]
+    \end{Verbatim}
+
+    \item \textcolor{red}{\texttt{SWAP3}} exchanges the top element in the stack with the
+    third element bellow it.
+    \begin{Verbatim}[commandchars=\\\{\}]
+    [x0,x1,x2,x3]
+     ↓ \textcolor{red}{SWAP3}
+    [x3,x1,x2,x0]
+    \end{Verbatim}
+
+    \item \textcolor{red}{\texttt{POP}} discards the top element of the stack.
+    \begin{Verbatim}[commandchars=\\\{\}]
+    [x0] 
+     ↓ \textcolor{red}{POP}
+    []
+    \end{Verbatim}
+\end{itemize}
+
+With these we can finally move on to analyze the following example. Consider
+these two sequences of EVM instructions.
 
 \begin{listing}[!ht]
-\begin{minted}{haskell}
+{\color{red}
+\begin{verbatim}
 SWAP3 SWAP1 SWAP2 MSTORE SWAP1 SWAP2 ADD SWAP1 MSTORE
-\end{minted}
+\end{verbatim}
+}
 \caption{Original EVM program}
 \label{lst:evm-original}
 \end{listing}
 
 \begin{listing}[!ht]
-\begin{minted}{haskell}
+{\color{red}
+\begin{verbatim}
 MSTORE MSTORE POP 
-\end{minted}
+\end{verbatim}
+}
 \caption{Optimized EVM program}
 \label{lst:evm-optimized}
 \end{listing}
 
-Even though we refer to them as ``Original'' and ``Optimized'', at first glance these two programs don't
-appear to be equivalent. Consider the execution of the first program (\ref{lst:evm-original}).
+Even though we refer to them as ``Original'' and ``Optimized'', at first glance these 
+two programs don't appear to be equivalent. Let's consider the results of their
+executions.
 
-\begin{minted}{haskell}
+Consider the execution of the first program (\ref{lst:evm-original}).
+
+\begin{Verbatim}[commandchars=\\\{\}]
 [x0,x1,x2,x3,x4,x5]
-SWAP3    -- Exchange 0th with 3rd element
+ ↓ \textcolor{red}{SWAP3}
 [x3,x1,x2,x0,x4,x5]
-SWAP1    -- Exchange 0th with 1st element
+ ↓ \textcolor{red}{SWAP1}
 [x1,x3,x2,x0,x4,x5]
-SWAP2    -- Exchange 0th with 2nd element
+ ↓ \textcolor{red}{SWAP2}
 [x2,x3,x1,x0,x4,x5]
-MSTORE   -- Store 1st element at 0th element's offset
-[x1,x0,x4,x5] -> MEM[x2] = x3
-SWAP1
-[x0,x1,x4,x5]
-SWAP2
-[x4,x1,x0,x5]
-ADD      -- Exchange first 2 elements with their sum
-[x4+x1,x0,x5]
-SWAP1
-[x0,x4+x1,x5]
-MSTORE
-[x5] -> MEM[x0] = x4+x1
-\end{minted}
+ ↓ \textcolor{red}{MSTORE}
+[x1,x0,x4,x5] \textcolor{teal}{(MEM[x2] = x3)}
+ ↓ \textcolor{red}{SWAP1}
+[x0,x1,x4,x5] \textcolor{teal}{(MEM[x2] = x3)}
+ ↓ \textcolor{red}{SWAP2}
+[x4,x1,x0,x5] \textcolor{teal}{(MEM[x2] = x3)}
+ ↓ \textcolor{red}{ADD}
+[x4+x1,x0,x5] \textcolor{teal}{(MEM[x2] = x3)}
+ ↓ \textcolor{red}{SWAP1}
+[x0,x4+x1,x5] \textcolor{teal}{(MEM[x2] = x3)}
+ ↓ \textcolor{red}{MSTORE}
+[x5]          \textcolor{teal}{(MEM[x2] = x3; MEM[x0] = x4+x1)}
+\end{Verbatim}
 
 Finally, consider the execution of the second program (\ref{lst:evm-optimized})
 
-\begin{minted}{haskell}
+\begin{Verbatim}[commandchars=\\\{\}]
 [x0,x1,x2,x3,x4,x5]
-MSTORE
-[x2,x3,x4,x5] -> MEM[x0] = x1
-MSTORE
-[x4,x5] -> MEM[x2] = x3
-POP     -- Discard 0th element
-[x5] 
-\end{minted}
+ ↓ \textcolor{red}{MSTORE}
+[x2,x3,x4,x5] \textcolor{teal}{(MEM[x0] = x1)}
+ ↓ \textcolor{red}{MSTORE}
+[x4,x5]       \textcolor{teal}{(MEM[x0] = x1; MEM[x2] = x3)}
+ ↓ \textcolor{red}{POP}
+[x5]          \textcolor{teal}{(MEM[x0] = x1; MEM[x2] = x3)}
+\end{Verbatim}
 
-The effects that these two programs produce are very different. However, they become equivalent
-if we have the following pieces of context:
+While the end result of the stacks are equivalent for both executions, we can't ensure that the
+effects they produce are equivalent. For starters, we cannot ensure that the memory accesses can
+be commuted. After all, if \verb|x0| $=$ \verb|x2| $= 0$ then after the first program we'd have
+{\textcolor{teal}{\texttt{MEM[0]~=~x4+x1}}} but after the second we'd have 
+{\textcolor{teal}{\texttt{MEM[0]~=~x3}}}, which need not be the same if \verb|x3| $\ne$ \verb|x4+x1|.
+Furthermore, we'd need that \verb|x4+x1| $=$ \verb|x1|, which is only possible if \verb|x4| $= 0$.
+
+However, some of these conditions may be fulfilled if we consider the contextual information.
+For example, consider the following contextual information, a list of added constraints to the
+previous variables.
 
 \begin{itemize}
     \item \verb|x4| $=$ \verb|x5|
@@ -63,9 +147,8 @@ if we have the following pieces of context:
     \item \verb|x0| $\ge$ \verb|x2| $+ 128$
 \end{itemize}
 
-The first two ensure that \verb|x4| $+$ \verb|x1| is in fact equivalent to \verb|x1| since from them we
-can deduce that \verb|x4| $= 0$. The last one guarantees that the memory accesses to the offsets
-referenced by \verb|x0| and \verb|x2| are disjoint, since the word size of the EVM is of 32 bytes (128 
-bits), and therefore we can reorder both writes while preserving the semantics of the code. These two
-snippets which at first seemed different can be shown to be equivalent if some sort of conditions always
-apply.
+From the last constraint we can derive that the memory accesses to the offsets
+referenced by \verb|x0| and \verb|x2| are disjoint, since the word size of the EVM is of 32 bytes and 
+$32 < 128$, and therefore we can reorder both writes while preserving the semantics of the code.
+From the first two constraints we can derive that \verb|x4| $= 0$ which ensures that \verb|x4| $+$ 
+\verb|x1| is in fact equivalent to \verb|x1|.

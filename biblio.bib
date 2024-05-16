@@ -12,164 +12,121 @@
 
 @article{TransitiveClosure,
   title={Tightened Transitive Closure of Integer Addition Constraints},
+  author={Peter Revesz},
+  year={2009},
   TODOISBN={9781450370974},
   TODOurl={https://dx.doi.org/10.1145/3372885.3373829},
   TODODOI={10.1145/3372885.3373829},
   TODOjournal={Proceedings of the 9th ACM SIGPLAN International Conference on Certified Programs and Proofs},
   TODOpublisher={ACM},
-  author={Peter Revesz},
-  year={2009},
   TODOmonth={Jan}
 }
 
 @article{HarveyStuckey,
   title={A unit two variable per inequality integer constraint solver for constraint logic programming},
+  author={W. Harvey, P. Stuckey},
+  year={1997},
   TODOISBN={9781450370974},
   TODOurl={https://dx.doi.org/10.1145/3372885.3373829},
   TODODOI={10.1145/3372885.3373829},
   TODOjournal={Proc. Australian Computer Science Conference (Australian Computer Science Communications)},
   TODOpublisher={ACM},
-  author={W. Harvey, P. Stuckey},
-  year={1997},
   TODOmonth={Jan}
 }
 
+; https://github.com/mit-plv/fiat-crypto
+; https://ieeexplore.ieee.org/document/8835346
+@INPROCEEDINGS{FiatCryptoSP19,
+  author={Erbsen, Andres and Philipoom, Jade and Gross, Jason and Sloan, Robert and Chlipala, Adam},
+  booktitle={2019 IEEE Symposium on Security and Privacy (SP)}, 
+  title={Simple High-Level Code for Cryptographic Arithmetic - With Proofs, Without Compromises}, 
+  year={2019},
+  volume={},
+  number={},
+  pages={1202-1219},
+  keywords={Cryptography;Libraries;Computer bugs;Optimization;Pipelines;Google;Elliptic curves;Cryptography;Software-engineering;Formal-verification},
+  doi={10.1109/SP.2019.00005}}
 
-
-%% EXAMPLES
-@book{ldesc2e,
-  author = 	 {Tom'as Bautista and Tobias Oetiker and Hubert Partl and Irene Hyna and Elisabeth Schlegl},
-  title = 	 {Una Descripción de \LaTeXe},
-  publisher = 	 {Versión electrónica},
-  year = 	 1998
+@misc{Iris,
+  author = {},
+  title = {{I}ris {P}roject --- iris-project.org},
+  howpublished = {\url{https://iris-project.org/}},
+  year = {},
+  note = {[Accessed 13-05-2024]},
 }
 
-@book{notsoshort,
-  author =	 {Tobias Oetiker and Hubert Partl and Irene Hyna and Elisabeth Schlegl},
-  title = 	 {The Not So Short Introduction to \LaTeXe},
-  publisher = 	 {Versión electrónica},
-  year = 	 1996
+@inproceedings{Cosette,
+  added-at = {2023-12-14T15:34:03.000+0100},
+  author = {Chu, Shumo and Wang, Chenglong and Weitz, Konstantin and Cheung, Alvin},
+  biburl = {https://www.bibsonomy.org/bibtex/23f7116554e1035682c22a4311b8850e1/admin},
+  booktitle = {CIDR},
+  TODOcrossref = {conf/cidr/2017},
+  ee = {http://cidrdb.org/cidr2017/papers/p51-chu-cidr17.pdf},
+  interhash = {ecbfdc4c8ace5261d3db506499006c35},
+  intrahash = {3f7116554e1035682c22a4311b8850e1},
+  keywords = {},
+  publisher = {www.cidrdb.org},
+  timestamp = {2023-12-14T15:34:03.000+0100},
+  title = {Cosette: An Automated Prover for SQL.},
+  url = {http://dblp.uni-trier.de/db/conf/cidr/cidr2017.html#ChuWWC17},
+  year = 2017
 }
 
-@book{latexAPrimer,
-  editor =	 {E. Krishnan},
-  title = 	 {\LaTeX\ Tutorials. A primer},
-  publisher = 	 {Indian \TeX\ Users Group},
-  year = 	 2003
+@article{CompCert,
+  author = {Leroy, Xavier},
+  title = {A Formally Verified Compiler Back-end},
+  year = {2009},
+  issue_date = {December  2009},
+  publisher = {Springer-Verlag},
+  address = {Berlin, Heidelberg},
+  volume = {43},
+  number = {4},
+  issn = {0168-7433},
+  url = {https://doi.org/10.1007/s10817-009-9155-4},
+  doi = {10.1007/s10817-009-9155-4},
+  abstract = {This article describes the development and formal verification (proof of semantic preservation) of a compiler back-end from Cminor (a simple imperative intermediate language) to PowerPC assembly code, using the Coq proof assistant both for programming the compiler and for proving its soundness. Such a verified compiler is useful in the context of formal methods applied to the certification of critical software: the verification of the compiler guarantees that the safety properties proved on the source code hold for the executable compiled code as well.},
+  journal = {J. Autom. Reason.},
+  month = {dec},
+  pages = {363–446},
+  numpages = {84},
+  keywords = {Compiler transformations and optimizations, Compiler verification, Formal methods, Program proof, Semantic preservation, The Coq theorem prover}
 }
 
-@book{latexCompanion,
-  author =	 {Frank Mittelbach and Michel Goossens and Johannes Braams and David Carlisle and Chris Rowley},
-  title = 	 {The \LaTeX\ Companion},
-  publisher = 	 {Addison-Wesley Professional},
-  year = 	 2004,
-  edition =	 {segunda}
+@misc{RustBelt,
+	author = {},
+	title = {{R}ust{B}elt --- plv.mpi-sws.org},
+	howpublished = {\url{https://plv.mpi-sws.org/rustbelt/}},
+	year = {},
+	note = {[Accessed 13-05-2024]},
 }
 
-@Book{LaTeXLamport,
-  author =	 {Leslie Lamport},
-  title = 	 {\LaTeX: A Document Preparation System, 2nd Edition},
-  publisher = 	 {Addison-Wesley Professional},
-  year = 	 1994
+@book{Pierce2017Logical,
+  added-at = {2019-03-01T00:11:50.000+0100},
+  author = {Pierce, Benjamin C. and de Amorim, Arthur A. and Casinghino, Chris and Gaboardi, Marco and Greenberg, Michael and Hri\c{t}cu, C\u{a}t\u{a}lin and Sj\"{o}berg, Vilhelm and Yorgey, Brent},
+  biburl = {https://www.bibsonomy.org/bibtex/2ff60904436e91d85a057934249825813/gdmcbain},
+  citeulike-article-id = {14445505},
+  citeulike-linkout-0 = {https://softwarefoundations.cis.upenn.edu/lf-current},
+  day = 6,
+  edition = {5.3},
+  interhash = {8a6d64568f6a55db108d80886b34f6fc},
+  intrahash = {ff60904436e91d85a057934249825813},
+  keywords = {03b15-higher-order-logic-type-theory 68n15-programming-languages 68q05-models-of-computation},
+  month = sep,
+  posted-at = {2017-10-04 23:36:28},
+  priority = {5},
+  publisher = {Software Foundations},
+  timestamp = {2019-03-01T00:11:50.000+0100},
+  title = {{Logical Foundations}},
+  url = {https://softwarefoundations.cis.upenn.edu/lf-current},
+  volume = 1,
+  year = 2017
 }
 
-@Book{texKnuth,
-  author =	 {Donald E. Knuth},
-  title = 	 {The \TeX\ book},
-  publisher = 	 {Addison-Wesley Professional.},
-  year = 	 1986
-}
-
-@Book{texImpatient,
-  author =	 {Paul W. Abrahams},
-  title = 	 {\TeX\ for the Impatient},
-  publisher = 	 {Addison Wesley Publishing Company},
-  year = 	 1990
-}
-
-@Book{texByTopic,
-  author =	 {Victor Eijkhout},
-  title = 	 {\TeX\ by Topic, a \TeX nician's Reference},
-  publisher = 	 {Addison-Wesley},
-  year = 	 1991
-}
-
-@Article{LatexAndSVN,
-  author = 	 {Mark Eli Kalderon},
-  title = 	 {{\LaTeX} and {S}ubversion},
-  journal = 	 {The Prac\TeX\ Journal},
-  volume = 2007,
-  year = 	 2007,
-  number =	 3
-}
-
-@Article{PaquetesSVNLatex,
-  author = 	 {Uwe Ziegenhagen},
-  title = 	 {{\LaTeX} Document Management with {S}ubversion},
-  journal = 	 {The Prac\TeX\ Journal},
-  volume = 2007,
-  year = 	 2007,
-  number =	 3
-}
-
-
-@Article{SVNmulti,
-  author = 	 {Martin Scharrer},
-  title = 	 {Version Control of {\LaTeX} Documents with svn-multi},
-  journal = 	 {The Prac\TeX\ Journal},
-  year = 	 2007,
-  volume = 2007,
-  number =	 3
-}
-
-@Article{BibTeXPracTex,
-  author = 	 {J\"urgen Fenn},
-  title = 	 {Managing Citations and Your Bibliography with {BibTeX}},
-  journal = 	 {The Prac\TeX\ Journal},
-  year = 	 2006,
-  volume = 2006,
-  number =	 4
-}
-
-@Book{AtazLopez,
-  author = {Joaquín Ataz López},
-  title =	 {Gu{\'{i}}a \emph{casi} completa de {BibTeX}},
-  publisher = 	 {Versión electrónica},
-  year = 	 {2006},
-  webpage = {ftp://ftp.ctan.org/tex-archive/info/spanish/guia-bibtex/guia-bibtex.pdf},
-  lastaccess = {Octubre, 2009},
-}
-
-@article{BibTexOriginal,
-  author =	 {Oren Patashnik},
-  title =	 {{BibTeX}ing},
-  month =	 feb,
-  year =	 1988,
-  webpage = {ftp://ftp.ctan.org/tex-archive/biblio/bibtex/contrib/doc/btxdoc.pdf},
-  lastaccess = {Octubre, 2009},
-}
-
-@Article{patashnik1988a,
-  author =	 {Oren Patashnik},
-  title =	 {Designing {BibTeX} Styles},
-  month =	 feb,
-  year =	 1988,
-  webpage = {ftp://ftp.ctan.org/tex-archive/biblio/bibtex/contrib/doc/btxhak.pdf},
-  lastaccess = {Octubre, 2009},
-}
-
-@Book{Flynn05,
-  author =	 {Peter Flynn},
-  title = 	 {A beginner's introduction to typesetting with \LaTeX},
-  publisher = 	 {The Comprehensive TeX Archive Network},
-  year = 	 2005
-}
-
-@Book{AtazLopezEmacs,
-  author = {Joaquín Ataz López},
-  title =	 {Creación de ficheros \LaTeX\ con {GNU} Emacs},
-  publisher = 	 {Versión electrónica},
-  year = 	 {2004},
-  webpage = {http://ctan.org/get/info/spanish/guia-atx/guia-atx.pdf},
-  lastaccess = {Octubre, 2009},
+@MISC {CoqTypeCheckingExponential,
+    TITLE = {What is the runtime/time complexity of Coq’s (Dependent) Type Inference?},
+    AUTHOR = {Charlie Parker},
+    HOWPUBLISHED = {Computer Science Stack Exchange},
+    NOTE = {URL:https://cs.stackexchange.com/q/147849 (version: 2021-12-21)},
+    EPRINT = {https://cs.stackexchange.com/q/147849},
+    URL = {https://cs.stackexchange.com/q/147849}
 }

@@ -14,6 +14,7 @@
 % bytecode.
 
 
+%% Why EVM good for optimization %% 
 In the field of code optimization, EVM bytecode stands as a language with much to benefit from, as it
 has some unique requirements which open up new dimensions for optimization. For general purpose
 programming languages the optimization's focus are usually on execution time, memory usage or code size.
@@ -25,22 +26,28 @@ magnitude.
 
 % https://costa.fdi.ucm.es/papers/costa/AlbertGHR22.pdf
 
+%% WHY EVM code optimization not widespread %%
 However, the optimization of EVM bytecode is not as widespread as one could imagine. This is in part
 due to the higher stakes that EVM programs, called \emph{smart contracts}, tend to work under. A bug
 in a \emph{smart contract} tends to have a greater impact than most other programs, often resulting
 in large monetary loses\footnote{See \url{https://www.gemini.com/cryptopedia/the-dao-hack-makerdao}}.
-It's therefore understandable that \emph{smart contract} developers do not want to risk
+It is therefore understandable that \emph{smart contract} developers do not want to risk
 being responsible of the semantics of their code being contaminated by a third party's tool.
 
+%% FORVES verifier %%
 To mitigate this risk, the \verb|FORVES|
 \footnote{FORmaly Verified EVM optimizationS \url{https://github.com/costa-group/forves2/}}
 project aims to develop a verifier which is able to guarantee that an optimization of a jump-free
-sequence of EVM bytecode retains the same semantics as the original unoptimized version. This, however,
-does not by itself suffice to appease the worries of the \emph{smart contract} developer, since we've
-merely pushed the burden of trust from the optimizer to the verifier. If the verifier were to have a
-bug, it could fail to recognize a valid optimization or, in the worst case, guarantee that an erroneous
-optimization is in fact valid, impacting its users.
+sequence of EVM instructions (that is, without pieces of code that are conditionally executed)
+retains the same semantics as the original unoptimized version. \verb|FORVES| works by computing the 
+resulting state after the execution of both sequences and applying simplifying them to prove their
+equivalence.
+This, however, does not by itself suffice to appease the worries of the \emph{smart contract} 
+developer, since we have merely pushed the burden of trust from the optimizer to the verifier. If the 
+verifier were to have a bug, it could fail to recognize a valid optimization or, in the worst case, 
+guarantee that an erroneous optimization is in fact valid, impacting its users.
 
+%% WHY trust FORVES -> Coq %%
 The solution is to, again, shift the burden of proof to another tool. For the \verb|FORVES| project the 
 verifier has been written in Coq, a proof assistant and programming language which allows its users to 
 define a formal specification and prove that their program adheres to it. The benefit of using a tool
@@ -50,21 +57,18 @@ Therefore, to trust that a Coq-certified program is correct is equivalent to tru
 kernel is correct, which is a much greater assurance. 
 % TODO: add link to article on verifying Coq in Coq: https://www.openaccessgovernment.org/proof-assistants-2/80852/
 Many different projects have taken advantage of this fact to develop pieces of critical software which
-can be trusted upon \citep{ConCert}
+can be trusted upon \cite{ConCert,FiatCryptoSP19,CompCert,Iris,Cosette}. A brief description of these projects can be found in Chapter 
+    \ref{cap:state-of-the-art}.
 % TODO: add references to other tools verified in Coq
 
+%% WHY trust FORVES -> Coq %%
 The purpose of this project is to aid in the development of \verb|FORVES2|, a successor of \verb|FORVES|
 which improves on its reasoning power by allowing it to take into account contextual information to
-decide if two pieces of code are equivalent. 
-
-The \verb|FORVES| verifier was devised to certify optimizations of the \verb|GASOL| superoptimizer. 
-Superoptimization is a compilation technique that searches, for a given jump-free sequence of 
-instructions, a semantically equivalent sequence of instructions which is optimal in some metric, like
-memory usage or execution cost. Since the superoptimizer requires these sequences of instructions to not
-have bifurcations, to optimize a program it first extracts all the sequences of instructions which don't 
-perform jumps and optimizes those separately before reassembling the program. In doing so, it remembers
-which conditions triggered those jumps so it can gain more information on which states of the program
-are possible for each section of the program. Consider the following example
+decide if two pieces of code are equivalent. The jump-free sequences of instructions which \verb|FORVES|
+takes as input are usually extracted from a complete program, which offers additional information about
+how it is used and what kind of values it receives. In particular, to apply some optimizations it is
+necessary to be able to derive certain constraints from this contextual information. Consider the 
+following example.
 
 \begin{center}
 \begin{tikzpicture}[auto,
@@ -88,22 +92,30 @@ The third block is only reachable if the jump condition is met, which means that
 be taken into consideration when certifying that two sequences of instructions are semantically 
 equivalent. 
 
+The contextual information which \verb|FORVES2| is interested in are constraints of the form 
+$x + d \le y + d'$ where $x$ and $y$ represent variables which point to EVM values (which themselves
+are a subset of the integers) and $d$ and $d'$ are integer constants. In particular from the previous
+constraints we can also derive the constraints of the form $x \ge y$, $x = d$ or $x < y + d'$ by taking
+advantage of the symmetry of the order relation, the combination of multiple constraints or the fact
+that $x \le k$ for $x$ and $k$ integers implies that $x < k + 1$. 
+
 \input{Content/optimization_example}
 
-The purpose of this project is to aid in the development of \verb|FORVES2|, a successor of 
-\verb|FORVES| which is able to take into account this kind of contextual information to verify whether
-two sequences of instructions are equivalent. To do so we need to be able to reason if a set of
-constraints are met from the context, which is what this project sets out to do, by developing a 
-certified ``implication checker'' which tests whether some constraints can be derived from the current
-context.
+Therefore, this project aims to develop a constraint solver which is able to prove that a given
+constraint holds for a given context. To do so, we transform the constraints into octagonal constraints
+and we employ the tightened transitive closure algorithm to finally check if a constraint can be derived
+from it.
 
 \section{Objectives}
 \label{sect:objectives}
 
+As previously stated, the main objective of this project is to aid in the development of \verb|FORVES2|
+by using contextual information to enable the usage of certain simplifications which require of certain
+constraints to hold true to be applied. To do so, we set the following sub-objectives:
+
 \begin{itemize}
-    \item Objective 1
-    \item Objective 2
-    \item \emph{and most importantly...} Objective 3!
+    \item Implement an implication checker which is able to determine whether a constraint can be derived from a set of contextual information.
+    \item Verify the implication checker in Coq.
 \end{itemize}
 
 \section{Work plan}
@@ -112,8 +124,12 @@ context.
 In order to achieve the previous objectives, the following plan was developed.
 
 \begin{itemize}
-    \item Define what contextual information is useful for the verifier
-    \item Define the specification of an implementation checker
-    \item Develop and certify a basic implementation checker
+    \item Define what contextual information is useful for the verifier.
+    \item Define the specification of an implementation checker.
+    \item Develop and certify a basic implementation checker.
     \item Develop and certify a more complex implementation checker.
 \end{itemize}
+
+The project is developed in \verb|FORVES2|'s GitHub repository
+\footnote{\url{https://github.com/costa-group/forves2}}, where the modified files are
+\verb|constraints.v| and \verb|octagon.v|.

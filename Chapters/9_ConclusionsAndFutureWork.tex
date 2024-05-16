@@ -1,6 +1,83 @@
 \chapter{Conclusions and Future Work}
 \label{cap:conclusions}
 
-Conclusions and future lines of work. This chapter contains the translation of Chapter.
+The original objective of this project was to develop an implication checker in Coq
+and verify its soundness. The objective of the project has therefore been achieved,
+however there is work to be done before it can be used in \verb|FORVES2| directly.
+While the algorithm is implemented and proven to be correct, before it can be used
+we need to connect it to the definitions found in \mintinline{coq}{constraints.v}.
 
+To do so, one would need to bridge the definitions between both files. The first definition
+to bridge would be that of \mintinline{coq}{Octagon.model} and 
+\mintinline{coq}{Constraints.assignment}. Both represent functions which transform naturals
+to values, but \mintinline{coq}{Octagon.model} gives integers (\mintinline{coq}{Z}) while
+\mintinline{coq}{Constraints.assignment} gives naturals (\mintinline{coq}{N}). The first
+step would be to show that \mintinline{coq}{Octagon.model} contains 
+\mintinline{coq}{Constraints.assignment}, and to provide an explicit injection.
+\begin{minted}{coq}
+Definition translate_model:
+    Constraint.assigment -> Octagon.model.
+\end{minted}
 
+Then, a transform of \mintinline{coq}{Constraints.constraint}s to 
+\mintinline{coq}{Octagon.Constraint}s using the rules outlined in Chapter 
+\ref{cap:definitions} would need to be defined. We can assume this transformation to look
+something like the following.
+\begin{minted}{coq}
+Definition translate_constraints: 
+    Constraint.conjunction -> list Octagon.Constraint.
+\end{minted}
+
+\noindent Then, we'd need to show that our \mintinline{coq}{translate_constraints} function
+preserves the information contained in the constraints.
+\begin{minted}{coq}
+Lemma translate_preserves_information(C: list Constraint.constraint) :
+  forall (m: Constraint.assigment),
+    let m_oct = translate_model m in
+    let C_oct = translate_constraints C in
+      Constraint.satisfies_conjunction m C = true <->
+      Octagon.satisfies_constraints m_oct C_oct = true.
+\end{minted}
+
+Armed with these results we could finally define a \mintinline{coq}{Constraint.conj_imp_checker}
+which would work by translating the constraints from the \mintinline{coq}{Constraint} model to
+the \mintinline{coq}{Octagon}'s one and asking whether these imply the provided thesis constraints
+using \mintinline{coq}{Octagon.conj_trans_closure_checker}. Notice that, since we haven't defined
+a translation between single constraints, our initial single thesis constraint may now correspond
+to multiple ones. Using the \mintinline{coq}{translate_preserves_information} lemma we would then
+show that the soundness of \mintinline{coq}{Octagon.conj_trans_closure_checker} implies that of 
+this checker.
+
+Beyond the connection between the theories described in \mintinline{coq}{constraints.v} and 
+\mintinline{coq}{octagon.v}, there's also the possibility of improving the runtime of the
+transitive closure algorithm. For instance, \cite{TransitiveClosure} mentions an algorithm which
+uses multiple matrices to represent the collection of constraints. Beyond being more efficient, 
+this representation would do away with the need for a specialized \mintinline{coq}{join} function
+while also improving the efficiency of the algorithm.
+
+One could also approach this from the perspective of generalizing our constraints container from
+the algorithm. A \mintinline{coq}{Module Type} could be defined which implements the required 
+operations and guarantees the necessary properties, and then the particular container could be
+developed independently.
+
+Finally, as mentioned in Chapter \ref{cap:definitions}, the \mintinline{coq}{imp_checker} invariant
+only requires that if the checking function returns \mintinline{coq}{true} then the implication
+holds. However, it would be useful to have the reciprocal: if the implication holds, then the checking
+function returns \mintinline{coq}{true}. This could be used to develop a satisfiability checker.
+
+Notice that our algorithm also constructs additive octagonal bounds of the form $x - x \le d$.
+These constraints will hold as long as $d$ is a non-negative integer, regardless of the assignment
+of $x$. In fact, \cite{HarveyStuckey} proves that having a constraint of the form $x - x \le d$
+for a negative $d$ is sufficient and necessary to prove that the original constraints were 
+unsatisfiable, that is, they are not satisfiable under any model.
+
+If we had the completeness result, we could implement a satisfiability checker which checks 
+whether the constraint $x - x \le d$ with negative $d$ is implied by the original constraints.
+Then, if the checker is unable to say that the implication holds, through completeness we would
+be able to assert that the constraints are satisfiable.
+
+Nevertheless, the proof for completeness appears to be too large in scope to be included, so we
+concluded it was out of scope for this project. While it would be a welcome addition to the project,
+we are currently relying in external SMT solvers to guarantee the satisfiability of constraints, 
+which largely lowers the priority of a Coq implementation since it would not be solving any new
+problems.
