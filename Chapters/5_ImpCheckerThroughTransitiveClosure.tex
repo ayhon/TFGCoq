@@ -20,6 +20,8 @@ While investigating the prior work we came across \cite{TransitiveClosure}, wher
 the author describes a $O(n^3)$ algorithm to compute the tightened transitive 
 closure of a set of octagonal constraints.
 
+\section{Tightened transitive closure of octagonal constraints}
+
 Octagonal constraints are constraints of the form $\pm x - \pm y \le d$ or 
 $\pm x \le d$ where $x,y,d \in \mathbb{Z}$. We say that constraints of the form
 $\pm x - \pm y \le d$ are addition constraints and of the form $\pm x \le d$ are
@@ -120,7 +122,7 @@ In particular, we remove the rules:
 \end{itemize}
 
 % TODO: Perhaps give an example here.
-% TODO: Explain with which rules we're left and how the rules we eliminate are derived
+% TODO: Explain with which rules we've left and how the rules we eliminate are derived
 %       from the ones we kept
 
 If we eliminate the requirement that after each new constraint added the set must be 
@@ -168,7 +170,8 @@ Applying the rules is left for the \mintinline{coq}{combine} function. Furthermo
 we also need to make sure that no rules of the form $ax + ax \le d$ makes it to the
 new set. We can achieve this by exchanging them for $ax \le \lfloor\frac{d}{2}\rfloor$
 in a post-processing step.
-% TODO: Add pseudocode of the algorithm
+
+\section{Implementation of the implication checker}
 
 Since the representation of the constraints is not exactly the same for our new 
 algorithm, we have opted to include these definitions in its own file, aptly named
@@ -194,7 +197,7 @@ Record term := {a: pmUnit; x: nat}.
 \end{minted}
 
 Variables in this representation are still identified with natural numbers, but since
-they can now take any integer values we need to also change our previous \mintinline{coq}{assigment}
+they can now take any integer values we need to also change our previous \mintinline{coq}{assignment}
 type definition, which we call now the type of \mintinline{coq}{model}s.
 
 \begin{minted}{coq}

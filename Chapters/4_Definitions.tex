@@ -1,4 +1,4 @@
-\chapter{Definitions}
+\chapter{Modelization of the problem in Coq}
 \label{cap:definitions}
 
 % X Define model
@@ -14,6 +14,10 @@
 
 The purpose of \mintinline{coq}{FORVES} is to certify that two sequences of EVM instructions are 
 semantically equivalent. To do so, we need to define what we mean by semantic equivalence.
+
+
+\section{Semantic equivalence of programs}
+
 We can represent a program as a function which transform state where by state we mean an assignment of 
 variables to values. In generic programming languages state is usually visualized with a map or a
 dictionary.
@@ -138,6 +142,8 @@ $x = 0$. Therefore, to apply the optimization \mintinline{coq}{add_zero} we need
 that the current contextual information we have implies the conditions we need, not that it's present
 explicitly.
 
+\section{Representation of constraints}
+
 How do we represent this in Coq? For starters, we need to define what type of contextual information
 are we working with. Since the Ethereum Virtual Machine works at the byte level, all its comparisons
 are arithmetic, which means the only conditions we are interested in are equalities and inequalities.
@@ -179,6 +185,8 @@ Notation conjunction := (list constraint).
 Notation disjuntion := (list conjunction).
 Definition constraints : Type := disjuntion.
 \end{minted}
+
+\section{Implication between constraints}
 
 The type \mintinline{coq}{constraints} represents the context that is available at one point in the 
 code. What we want to be able to do is check if some set of constraints imply a different one. But in 
@@ -237,6 +245,8 @@ A similar definition follows for conjunctions instead of terms in DNF.
 Definition conj_imply(cs: conjunction)(c: constraint) := forall (m: assignment),
   satisfies_conjunction m cs = true -> satisfies_single_constraint m c = true.
 \end{minted}
+
+\section{Implication checker}
 
 We can finally define what we mean by an implication checker. In the end, an implication checker is 
 just a function which takes some constraints as contextual information, which we will call the 
