@@ -63,7 +63,7 @@ Axiom functional_extensionality : forall {X Y: Type}
   (forall (x:X), f x = g x) → f = g.
 \end{minted}
 
-Functional \href{}{extensionality} is not native to Coq, since it cannot be proven directly. Therefore, if we
+Functional extensionality is not native to Coq, since it cannot be proven directly. Therefore, if we
 wanted to use it we would need to add it as an axiom. Fortunately, adding this axiom is known to keep
 Coq's logic consistent, which means that we cannot prove a proposition simultaneously to be true and 
 false. Since it is harmless, Coq provides it as a definition in its standard library, under 
