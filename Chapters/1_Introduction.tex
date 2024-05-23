@@ -44,8 +44,8 @@ resulting state after the execution of both sequences and simplifying them to pr
 equivalence.
 This, however, does not by itself suffice to appease the worries of the \emph{smart contract} 
 developer, since we have merely pushed the burden of trust from the optimizer to the verifier. If the 
-verifier were to have a bug, it could fail to recognize a valid optimization or, in the worst case, 
-guarantee that an erroneous optimization is in fact valid, impacting its users.
+verifier were to have a bug, it could guarantee that an erroneous optimization is in fact valid,
+impacting its users.
 
 %% WHY trust FORVES -> Coq %%
 The solution is to, again, shift the burden of proof to another tool. For the \verb|FORVES| project the 
@@ -100,9 +100,9 @@ advantage of the symmetry of the order relation, the combination of multiple con
 that $x \le k$ for $x$ and $k$ integers implies that $x < k + 1$. 
 
 Therefore, this project aims to develop a constraint solver which is able to prove that a given
-constraint holds for a given context. To do so, we transform the constraints into octagonal constraints
-and we employ the tightened transitive closure algorithm to finally check if a constraint can be derived
-from it.
+constraint holds for a given context. To do so, we transform the constraints into a special type,
+called octagonal constraints, and we employ the tightened transitive closure algorithm to finally
+check if a constraint can be derived from it.
 
 \section{Objectives}
 \label{sect:objectives}
@@ -135,7 +135,7 @@ allotted time frame for the project.
     \item Model the problem in Coq.
     \begin{enumerate}[label={2.{\arabic*}.}]
         \item\label{task:2.1} Define the structure of the desired constraints.
-        \item\label{task:2.2} Define the correct notion of implication.
+        \item\label{task:2.2} Define the correct notion of implication between constraints.
         \item\label{task:2.3} Define what is an implementation checker.
     \end{enumerate}
     

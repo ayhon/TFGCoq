@@ -1,14 +1,235 @@
 \chapter*{Introducción}
 \label{cap:introduccion}
-\addcontentsline{toc}{chapter}{Introduction}
+\addcontentsline{toc}{chapter}{Introducción}
 
-Introduction to the subject area. This chapter contains the translation of Chapter \ref{cap:introduccion}.
+\chapterquote
+{Ethereum, taken as a whole, can be viewed as a transaction-based state machine: we begin with a genesis state and incrementally execute transactions to morph it into some current state. It is this current state which we accept as the canonical “version” of the world of Ethereum.}
+{Ethereum Yellow Paper \cite{wood2014ethereum}}
 
+\section{Motivación}
 
+En el campo de optimización de código, el \emph{bytecode} de la máquina virtual 
+de Ethereum (EVM) destaca como un lenguaje con mucho de lo que beneficiarse
+de la disciplina, debido a requisitos particulares del lenguaje que abren
+nuevas posibilidades para su optimización. En lenguajes de programación de
+propósito general el objetivo de las optimizaciones suele ser el tiempo de
+ejecución o el uso de memoria. Sin embargo, los programas compilados a \emph{bytecode}
+de la EVM, conocidos como contratos inteligentes, uno debe tener en consideración
+nuevos factores como el tamaño del ejecutable compilado o el coste monetario
+de su ejecución. Toda instrucción de la EVM tiene un precio, conocido como
+\emph{gas}\footnote{Ver \url{https://www.evm.codes/}}, que debe ser pagado 
+para ejecutarla, y estos precios pueden variar en gran medida según la instrucción.
 
+Aún así, la optimización de \emph{bytecode} de la EVM no está tan extendido como
+uno imaginaría inicialmente. Esto se debe en parte a los grandes riesgos bajo los
+que los programas de la EVM suelen trabajar. Un error en un contrato inteligente
+suele tener un mayor impacto que en otros programas, a menudo resultando en grandes
+perdidas monetarias\footnote{Ver \url{https://www.gemini.com/cryptopedia/the-dao-hack-makerdao}}.
+Por lo tanto es comprensible que los desarrolladores de contratos inteligentes no 
+quieran responsabilizarse de los posibles cambios en la semántica de su programa que
+una herramienta de terceros pueda introducir.
 
+Para mitigar el riesgo, el proyecto \verb|FORVES|\footnote{FORmaly Verified EVM optimizationS 
+\url{https://github.com/costa-group/forves2/}} pretende desarrollar un verificador
+capaz de garantizar que una optimización de una secuencia de instrucciones de la EVM 
+sin saltos conserva el mismo significado que su versión sin optimizar. \verb|FORVES|
+consigue esto calculando el estado resultante de la ejecución de ambas secuencias y
+simplificándolas para probar su equivalencia. Sin embargo, esto no es suficiente
+para aplacar las preocupaciones de los desarrolladores de contratos inteligentes,
+puesto que simplemente hemos trasladado la carga de la prueba del optimizador al
+verificador. Es decir, si el verificador tuviera un error, este podría garantizar que 
+una optimización errónea es válida.
 
+La solución es volver a trasladar la carga de la prueba a otra herramienta en la que
+sí podamos confiar. Para el proyecto \verb|FORVES| el verificador se ha escrito en
+Coq, un asistente de pruebas y lenguaje de programación que permite a sus usuarios
+definir una especificación formal y probar que su programa la cumple. Los beneficios
+de usar esta herramienta es que la carga de la prueba se concentra en un subconjunto
+de funcionalidades que han sido cuidadosamente estudiadas por matemáticos y sobre las
+que el resto de sus funcionalidades se basan para garantizar su correctitud. Es
+decir, para confiar en que un programa certificado por Coq es correcto solo hace falta
+confiar que el núcleo de Coq es correcto, el cual es mucho más fiable\footnote{
+Hay incluso un proyecto para verificar Coq en Coq. \cite{sozeau:hal-04077552}
+}. Muchos otros proyectos se han aprovechado de este hecho para desarrollar programas 
+críticos en los que se pueda confiar\cite{...}. Una breve descripción de estos proyectos, 
+en inglés, se puede encontrar en el Capítulo \ref{cap:state-of-the-art}.
 
+El objetivo de este proyecto es ayudar en el desarrollo de \verb|FORVES2|, un sucesor
+de \verb|FORVES| que mejora sus capacidades de razonamiento permitiéndole tener en
+cuenta la información del contexto para determinar si dos secuencias de instrucciones
+son equivalentes. Las secuencias de instrucciones libres de saltos de la EVM que 
+\verb|FORVES| recibe vienen normalmente de un programa más grande, el cual cuenta con
+información adicional sobre como se usa esta secuencia y que tipo de valores recibe.
+En particular, para realizar ciertas optimizaciones es necesario poder deducir ciertas
+restricciones de la información del contexto. Veamos un ejemplo.
 
+\begin{center}
+\begin{tikzpicture}[auto,
+  node distance = 12mm and 20mm,
+  start chain = going below,
+  box/.style = {draw,rounded corners,blur shadow,fill=white,
+        on chain,align=center}]
+ \node[box] (b2)    {\verb|x0|\mintinline{haskell}{ = ...} \\ \verb|x1|\mintinline{haskell}{ = ...} \\ \verb|x0| - \verb|x1| $\ge$ 128?};      
+ \node[box, draw=blue!80] (b3)    {\mintinline{haskell}{MEM[x0] = ...} \\ \mintinline{haskell}{MEM[x1] = ...}};  
+ \node[box,right=of b2] (b4)    {\dots};     
+ \begin{scope}[rounded corners,-latex]
+ \path 
+  (b2) edge node{\color{red}{\texttt{false}}} (b4)
+  (b2) edge node{\mintinline{coq}{true}} (b3);
+ \end{scope}
+\end{tikzpicture}
+\end{center}
 
+El bloque azul solo se puede alcanzar si la condición de salto se cumple, lo cual a su
+vez nos indica que \texttt{x0}$\ge$\texttt{x1}$+128$. Esta información puede ser útil
+cuando se optimiza una parte del código, y por lo tanto se debe tener en consideración
+si queremos certificar que dos secuencias de instrucciones son semánticamente 
+equivalentes. Por ejemplo, sabiendo que \texttt{x0}$\ge$\texttt{x1}$+128$ es cierto
+podemos deducir que las regiones de memoria a las que apuntan \texttt{x0} y \texttt{x1}
+son disjuntas, y por lo tanto los accesos a memoria se pueden reordenar sin alterar
+el resultado final.
+
+La información del contexto de interés para \verb|FORVES2| son restricciones de la forma
+$x + d \le y + d'$ donde $x$ e $y$ representan variables que apuntan a valores de la EVM,
+que a su vez son un subconjunto de números enteros, y $d$ y $d''$ son constantes enteras.
+Usando restricciones como la anterior también se pueden derivar otras restricciones como
+$x \ge  y$, $x = d$ o $x < y + d'$ usando la simetría de la relación de orden, la 
+combinación de múltiples restricciones o el hecho de que si $x \le k$ con $x$ y $k$ 
+enteros entonces $x < k + 1$.
+
+Por lo tanto, el objetivo de este trabajo es desarrollar un resolutor de restricciones que
+sea capaz de probar que una restricción dada se cumple para un contexto específico. Para
+ello transformamos las restricciones a un tipo específico, llamadas restricciones octogonales,
+y usamos el algoritmo de la clausura transitiva para comprobar si otra restricción se puede
+derivar de las anteriores.
+
+\section{Objetivos}
+
+Como se mencionó anteriormente, el objetivo principal de este trabajo es desarrollar un
+resolutor de restricciones que permita usar información del contexto para aplicar ciertas
+simplificaciones en el proyecto \verb|FORVES| que necesitan de ciertas condiciones previas
+para ser usadas. Además, al igual que en el resto del proyecto, dicho resolutor de
+restricciones debe estar verificado en Coq. Para ello elegimos los siguientes subobjetivos.
+
+\begin{itemize}
+    \item Estudiar Coq como herramienta para el desarrollo de \emph{software} verificado.
+    \item Modelizar el problema en Coq.
+    \item Implementar un comprobador de implicaciones que sea capaz de determinar si una
+          restricción puede ser derivada de información de contexto.
+    \item Verificar el comprobador de implicaciones en Coq.
+\end{itemize}
+
+\section{Plan de trabajo}
+
+Cada objetivo a su vez se dividió en distintas tareas y cada una de estas tareas se distribuyo
+en el periodo de tiempo asignado al proyecto.
+
+\begin{enumerate}
+    \item Estudiar Coq como herramienta para el desarrollo de \emph{software} verificado. \\
+    \begin{enumerate}[label={1.{\arabic*}.}]
+        \item\label{tarea:1.1} Leer \emph{Logical Foundations} \cite{Pierce2017Logical} hasta el
+              Capítulo 6 - \emph{Logic}.
+        \item\label{tarea:1.2} Terminar \emph{Logical Foundations} \cite{Pierce2017Logical}.
+    \end{enumerate}
+
+    \item Modelizar el problema en Coq.
+    \begin{enumerate}[label={2.{\arabic*}.}]
+        \item\label{tarea:2.1} Definir la estructura de las restricciones relevantes.
+        \item\label{tarea:2.2} Definir la noción de implicación de restricciones.
+        \item\label{tarea:2.3} Definir qué es un comprobador de implicaciones.
+    \end{enumerate}
+
+    \item Implementar un comprobador de implicaciones que sea capaz de determinar si una
+          restricción puede ser derivada de información de contexto.
+    \begin{enumerate}[label={3.{\arabic*}.}]
+        \item\label{tarea:3.1} Implementar una versión básica de un comprobador de implicaciones,
+             para asegurarse de la definición es la deseada.
+        \item\label{tarea:3.2} Implementar una versión más potente del comprobador de implicaciones
+             usando un resolutor de restricciones.
+    \end{enumerate}
+
+    \item Verificar el comprobador de implicaciones en Coq.
+    \begin{enumerate}[label={4.{\arabic*}.}]
+        \item\label{tarea:4.1} Desarrollar la teoría para verificar el comprobador de implicaciones básico.
+        \item\label{tarea:4.2} Desarrollar la teoría para verificar el comprobador de implicaciones definitivo.
+    \end{enumerate}
+\end{enumerate}
+
+El periodo asignado para el trabajo fueron los meses de enero a mayo de 2024. Los dos primeros
+meses se reservaron para familiarizarse con las herramientas a utilizar, como Coq o \verb|FORVES2|.
+El mes siguiente se dedicó a modelizar el problema en Coq, decidiendo y estabilizando la versión
+final de las definiciones que se iban a usar e implementando la versión básica del comprobador de
+implicaciones para ver como estas definiciones interactuarían con el resto del proyecto. Durante
+este mes se consideraron varios algoritmos para implementar el resolutor de restricciones. La
+implementación del comprobador de restricciones definitivo se dejó para mayo, cuando se implementó
+el algoritmo en Coq y se desarrolló la teoría necesaria para verificarlo. Esta teoría se acabó
+implementando de forma independiente al resto de definiciones del proyecto, y pese a que 
+originalmente consideramos incluir la integración de esta teoría con el resto del proyecto como 
+una subtarea adicional, rápidamente nos dimos cuenta de que este esfuerzo estaba fuera del ámbito
+del trabajo. Para más información ver la Sección \ref{secc:trabajo-futuro}.
+
+El ciclo de desarrollo final se puede visualizar como diagrama de Gantt en la Figura \ref{diagrama-gantt}.
+
+\begin{figure}
+\setganttlinklabel{s-s}{START-TO-START}
+\setganttlinklabel{f-s}{FINISH-TO-START}
+\setganttlinklabel{f-f}{FINISH-TO-FINISH}
+\begin{ganttchart}[
+    canvas/.append style={fill=none, draw=black!5, line width=.75pt},
+    hgrid style/.style={draw=black!5, line width=.75pt},
+    vgrid={*1{draw=black!5, line width=.75pt}},
+    title/.style={draw=none, fill=none},
+    title label font=\bfseries\footnotesize,
+    title label node/.append style={below=7pt},
+    include title in canvas=false,
+    bar label font=\mdseries\small\color{black!70},
+    bar label node/.append style={left=2cm},
+    bar/.append style={draw=none, fill=blue!50},
+    bar incomplete/.append style={fill=barblue},
+    bar progress label font=\mdseries\footnotesize\color{black!70},
+    group incomplete/.append style={fill=groupblue},
+    group left shift=0,
+    group right shift=0,
+    group height=.5,
+    group peaks tip position=0,
+    group label node/.append style={left=.6cm},
+    group progress label font=\bfseries\small,
+    link/.style={-latex, line width=1.5pt, linkred},
+    link label font=\scriptsize\bfseries,
+    link label node/.append style={below left=-2pt and 0pt}
+  ]{1}{13}
+  \gantttitle[
+    title label node/.append style={below left=7pt and -10pt}
+  ]{MESES:\quad Ene}{1}
+  \gantttitlelist{"","","Feb","","","Mar","","","Abr","","","May"}{1} \\
+
+  \ganttbar{Tarea \ref{tarea:1.1}}{1}{5} \\
+  \ganttbar{Tarea \ref{tarea:1.2}}{6}{9} \\
+  \ganttbar{Tarea \ref{tarea:2.1}}{6}{8} \\
+  \ganttbar{Tarea \ref{tarea:2.1}}{6}{8} \\
+  \ganttbar{Tarea \ref{tarea:2.1}}{6}{8} \\
+  \ganttbar{Tarea \ref{tarea:3.1}}{7}{8} \\
+  \ganttbar{Tarea \ref{tarea:4.1}}{8}{9} \\
+  \ganttbar{Tarea \ref{tarea:3.2}}{10}{11} \\
+  \ganttbar{Tarea \ref{tarea:4.2}}{11}{12} \\
+  \ganttbar{Escribir la memoria}{13}{13}
+
+  % \ganttlink[link type=s-s]{WBS1A}{WBS1B}
+  % \ganttlink[link type=f-s]{WBS1B}{WBS1C}
+  % \ganttlink[
+  %   link type=f-f,
+  %   link label node/.append style=left
+  % ]{WBS1C}{WBS1D}
+\end{ganttchart}
+\caption{Diagrama de Gantt del trabajo.}
+\label{diagrama-gantt}
+\end{figure}
+
+El trabajo se desarrolla en el repositorio de GitHub\footnote{
+\url{https://github.com/costa-group/forves2}} del proyecto \verb|FORVES2|. Los archivos
+relevantes al trabajo son 
+\href{https://github.com/costa-group/forves2/blob/8ec2a66dd44e0c695668d04dbe08f68ef5b56fb4/constraints.v}{\texttt{constraints.v}}
+y
+\href{https://github.com/costa-group/forves2/blob/8ec2a66dd44e0c695668d04dbe08f68ef5b56fb4/octagon.v}{\texttt{octagon.v}},
+donde el primero usa algunos términos definicios en otros archivos del proyecto.
 

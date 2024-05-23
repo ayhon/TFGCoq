@@ -1,7 +1,195 @@
 \chapter*{Conclusiones y Trabajo Futuro}
 \label{cap:conclusiones}
+\addcontentsline{toc}{chapter}{Conclusiones y Trabajo Futuro}
 
-Conclusiones del trabajo y líneas de trabajo futuro.
+En el Capítulo \ref{cap:imp-checker} implementamos un algoritmo que, cuando recibe una
+lista de hipótesis de restricciones octogonales y otra restricción octogonal como tesis,
+determina si la tesis se puede obtener de las hipótesis. Si este algoritmo determina que
+es posible, también hemos verificado formalmente que la implicación siempre es correcta,
+y por lo tanto se puede utilizar en distintas partes del proyecto.
 
-Antes de la entrega de actas de cada convocatoria, en el plazo que se indica en el calendario de los trabajos de fin de grado, el estudiante entregará en el Campus Virtual la versión final de la memoria en PDF.
+Ahora podemos emplear nuestro algoritmo para resolver el problema introducido en el
+Capítulo \ref{cap:state-of-the-art}. En este vimos que los Fragmentos \ref{lst:evm-original} 
+y \ref{lst:evm-optimized} dejan la pila de la EVM en el mismo estado tras su ejecución,
+pero que no se podían considerar semánticamente equivalentes a no ser que se cumplieran
+ciertas restricciones. En concreto, estas restricciones eran.
+\begin{align}
+    \label{restr:T1} x_4 &= 0 \\
+    \label{restr:T2} x_0 &\ge x_2 + 32
+\end{align}
 
+En la Sección \ref{sect:optimization-smart-contracts} probamos que \ref{restr:T1} y 
+\ref{restr:T2} se podían derivar de las siguientes restricciones.
+
+\begin{align*}
+    x_4 &= x_5 \\
+    x_5 &= 0 \\
+    x_0 &\ge x_2 + 128
+\end{align*}
+
+Ahora, sin embargo, podemos usar el comprobador de implicaciones implementado en
+el Capítulo \ref{cap:imp-checker} para comprobarlo. Primero, tenemos que transformar
+nuestras hipótesis en restricciones octogonales. Para ello, seguimos las instrucciones
+descritas en el Capítulo \ref{cap:definitions}.
+
+\begin{align*}
+    x_4 = x_5 &\Longrightarrow x_4 - _5 \le 0 \ \wedge\  x_5 - x_4 \le 0
+    \\
+    x_5 = 0 &\Longrightarrow x_5 \le 0 \ \wedge\ -x_5 \le 0
+    \\
+    x_0 \ge x_2 + 128 &\Longrightarrow x_2 - x_0 \le -128
+\end{align*}
+
+Para facilitarnos la construcción de varias restricciones, usamos las siguientes
+funciones de conveniencia.
+
+\begin{minted}{coq}
+Program Definition mkadd_pp(x: nat)(y: nat)(d: Z) :=
+  AddConstr (Build_term 1 x) (Build_term 1 y) d.
+Program Definition mkadd_pn(x: nat)(y: nat)(d: Z) :=
+  AddConstr (Build_term 1 x) (Build_term (-1) y) d.
+Program Definition mkadd_nn(x: nat)(y: nat)(d: Z) :=
+  AddConstr (Build_term (-1) x) (Build_term (-1) y) d.
+Program Definition mkbnd_p(x: nat)(d: Z) :=
+  BndConstr (Build_term 1 x) d.
+Program Definition mkbnd_n(x: nat)(d: Z) :=
+  BndConstr (Build_term (-1) x) d.
+\end{minted}
+
+Con estas funciones, podemos definir la lista de restricciones que representan
+la información del contexto de nuestra aplicación.
+
+\begin{minted}{coq}
+Local Definition C := 
+  (* Obtained from [x4 = x5] *)
+  [ Octagon.mkadd_pn 4 5 0   (*  x4 - x5 <= 0 *)
+  ; Octagon.mkadd_pn 5 4 0   (*  x5 - x4 <= 0 *)
+  (* Obtained from [x5 = 0] *)
+  ; Octagon.mkbnd_p 5 0      (*  x5 <= 0*)
+  ; Octagon.mkbnd_n 5 0      (* -x5 <= 0*)
+  (* Obtained from [x0 >= x2 + 128] *)
+  ; Octagon.mkadd_pn 2 0 (-128) (*  x2 - x0 <= -128 *)
+].
+\end{minted}
+
+Esta transformación de nuestras hipótesis también necesita realizarse para
+nuestra tesis. En concreto, \ref{restr:T1}  se transforma en las 
+restricciones $x_4 \le 0$ y $-x_4 \le 0$,  por lo que tendremos que comprobar 
+que ambas se cumplen para poder decir que \ref{restr:T1} se cumple.
+
+\begin{minted}{coq}
+Local Definition checker: Constraint -> bool := 
+    conj_imp_checker_fun (conj_trans_closure_checker (2 * length C)) C.
+
+(* x4 = 0 *)
+Compute checker (Octagon.mkbnd_p 4 0) && checker (Octagon.mkbnd_n 4 0).
+(* x0 >= x2 + 32 *)
+Compute checker (Octagon.mkadd_pn 2 0 (-32)).
+\end{minted}
+\vspace{-\baselineskip*3/2}
+\begin{minted}[bgcolor=outputbg]{coq}
+checker is defined
+
+= true
+     : bool
+
+= true
+     : bool
+\end{minted}
+
+\section{Trabajo futuro}
+\label{sect:future-work}
+
+El objetivo original de este trabajo era el desarrollar el comprobador de 
+implicaciones y verificar su corrección. Por lo tanto, el objetivo del 
+trabajo se puede dar por concluido. Sin embargo, aún queda trabajo por
+hacer para que este algoritmo se pueda usar directamente en el proyecto
+\verb|FORVES2|. Mientras que el algoritmo se ha verificado, no se puede
+usar con las definiciones descritas en el Capítulo \ref{cap:definitions},
+que se pueden encontrar en el archivo \mintinline{coq}{constraints.v}. Por
+lo tanto, sería necesario conectar estas definiciones con las usadas en
+la teoría del Capítulo \ref{cap:imp-checker}.
+
+Los primeras definiciones a conectar serían las del estado:
+\mintinline{coq}{Octagon.model} y \mintinline{coq}{Constraints.assignment}.
+Ambas representan funciones que toman números naturales, pero 
+\mintinline{coq}{Octagon.model} devuelve enteros (\mintinline{coq}{Z}) mientras
+\mintinline{coq}{Constraints.assignment} devuelve naturales (\mintinline{coq}{N}).
+El primer paso sería mostrar que \mintinline{coq}{Octagon.model} contiene a
+\mintinline{coq}{Constraints.assignment}, y dar una inyección explícita.
+\begin{minted}{coq}
+Definition translate_model:
+    Constraint.assigment -> Octagon.model.
+\end{minted}
+
+También sería necesario implementar la traducción de restricciones descrita en el
+Capítulo \ref{cap:definitions}, de \mintinline{coq}{Constraints.constraint}s a
+\mintinline{coq}{Octagon.Constraint}s usando las reglas descritas en el Capítulo
+\ref{cap:definitions}. Podemos asumir que el tipo de esta transformación sería similar al
+siguiente.
+\begin{minted}{coq}
+Definition translate_constraints: 
+    Constraint.conjunction -> list Octagon.Constraint.
+\end{minted}
+
+\noindent Finalmente deberíamos demostrar que la función \mintinline{coq}{translate_constraints}
+preserva la información contenida en las restricciones.
+Es decir, que un modelo satisface unas restricciones si y solamente si el modelo traducido
+también satisface la transformación de las restricciones.
+
+\begin{minted}{coq}
+Lemma translate_preserves_information(C: list Constraint.constraint) :
+  forall (m: Constraint.assigment),
+    let m_oct = translate_model m in
+    let C_oct = translate_constraints C in
+      Constraint.satisfies_conjunction m C = true <->
+      Octagon.satisfies_constraints m_oct C_oct = true.
+\end{minted}
+
+Con estos resultados podríamos definir un \mintinline{coq}{Constraint.conj_imp_checker}
+que funcionaría traduciendo las restricciones del modulo \mintinline{coq}{Constraint} a las
+de \mintinline{coq}{Octagon} y preguntando si se pueden derivar las tesis transformadas de las
+hipótesis con \mintinline{coq}{Octagon.conj_trans_closure_checker}. Cabe recalcar que como 
+nuestras transformaciones están definidas para conjuntos de restricciones, una restricción al 
+traducirse puede resultar en varias restricciones. En estos casos se comprobaría que cada una
+de las restricciones resultantes se cumple para verificar que se cumple la tesis. Usando el lema
+\mintinline{coq}{translate_preserves_information} 
+podríamos probar que la corrección de \mintinline{coq}{Octagon.conj_trans_closure_checker} 
+implica la de nuestro comprobador.
+
+Más allá de la conexión entre las teorías descritas en \mintinline{coq}{constraints.v} y
+\mintinline{coq}{octagon.v}, también existe la posibilidad de mejorar el tiempo de ejecución
+del algoritmo de clausura transitiva. Por ejemplo, \cite{TransitiveClosure} menciona un algoritmo
+que utiliza matrices para representar una colección de restricciones. Además de ser una 
+representación más eficiente, también simplificaría la implementación de la función
+\mintinline{coq}{join}.
+
+También se podría abordar la cuestión desde el punto de vista de desacoplar al algoritmo de la 
+implementación del contenedor de restricciones, mediante la definición de un 
+\mintinline{coq}{Module Type} que especifica las operaciones necesarias del contenedor y sus 
+invariantes. De esta manera se podría desarrollar la teoría del comprobador de implicaciones
+independientemente de la implementación del contenedor.
+
+Por último, como se mencionó en el Capítulo \ref{cap:definitions}, el invariante \mintinline{coq}{imp_checker} 
+solo especifica que cuando la función comprobadora devuelve \mintinline{coq}{true} entonces la implicación
+se cumple. Sin embargo, sería útil tener el recíproco: si la implicación se cumple, entonces sabemos que
+la función comprobadora devuelve \mintinline{coq}{true}. Esta propiedad podría usarse para desarrollar un 
+comprobador de satisfabilidad, por ejemplo.
+
+Hay que tener en cuenta que nuestro algoritmo construye restricciones octogonales aditivas
+de la forma $x - x \le d$. Estas restricciones son ciertas o no dependiendo del valor de
+la constate $d$ e independientemente del valor de la variable $x$. De hecho, \cite{HarveyStuckey}
+prueba que derivar una restricción de la forma $x - x \le d$ con $d$ negativo es condición
+suficiente y necesaria para concluir que las restricciones originales son insatisfacibles,
+es decir, no son satisfacibles para ningún modelo.
+
+Si tuviéramos el resultado de completitud, podríamos implementar un comprobador de satisfabilidad
+comprobando si la restricción $x - x \le -1$ se puede derivar de las restricciones originales, para
+cualquier variable $x$. De esta manera, si el comprobador es incapaz de decir que la implicación es
+cierta, por la completitud podemos deducir que las restricciones son satisfacibles.
+
+Aunque la completitud es una propiedad conveniente, esta nunca ha sido un requisito en el proyecto
+\verb|FORVES2|. Gracias al proyecto SMTCoq\cite{EMT+17} podemos usar resolutores SMT externos para
+probar que un conjunto de restricciones es satisfacible y verificar sus resultados. Es por esto
+que en este trabajo optamos en concentrarnos en la correctitud antes que la completitud del algoritmo.
+Aun así, es cierto que esta sería la extensión más natural de los conceptos tratados en este trabajo.

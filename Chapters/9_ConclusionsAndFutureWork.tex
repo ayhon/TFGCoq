@@ -1,7 +1,7 @@
 \chapter{Conclusions and Future Work}
 \label{cap:conclusions}
 
-We have therefore implemented an algorithm which, when given a list of octagonal
+In Chapter \ref{cap:imp-checker} we implemented an algorithm which, when given a list of octagonal
 hypothesis constraints and an octagonal thesis constraint, will determine whether
 the thesis constraint can be obtained from the hypothesis. If this algorithm
 determines that it is possible, we have also formally verified that the implication
@@ -127,7 +127,7 @@ Definition translate_constraints:
 
 \noindent Then, we would need to show that our \mintinline{coq}{translate_constraints} function
 preserves the information contained in the constraints. That is, some model satisfies some 
-constraints if and only if the translated model also satisfies the constraints.
+constraints if and only if the translated model also satisfies the translated constraints.
 
 \begin{minted}{coq}
 Lemma translate_preserves_information(C: list Constraint.constraint) :
@@ -139,7 +139,7 @@ Lemma translate_preserves_information(C: list Constraint.constraint) :
 \end{minted}
 
 Armed with these results we could define a \mintinline{coq}{Constraint.conj_imp_checker}
-which would work by translating the constraints from the \mintinline{coq}{Constraint} model to
+which would work by translating the constraints from the \mintinline{coq}{Constraint} module to
 the \mintinline{coq}{Octagon}'s one and asking whether these imply the provided thesis constraints
 using \mintinline{coq}{Octagon.conj_trans_closure_checker}. Notice that, since we have not defined
 a translation between single constraints, our initial single thesis constraint may now correspond
@@ -151,9 +151,9 @@ constraints need to be proven, and ensuring that all of them hold. Using the
 Beyond the connection between the theories described in \mintinline{coq}{constraints.v} and 
 \mintinline{coq}{octagon.v}, there  is also the possibility of improving the runtime of the
 transitive closure algorithm. For instance, \cite{TransitiveClosure} mentions an algorithm which
-uses multiple matrices to represent the collection of constraints. Beyond being more efficient, 
-this representation would do away with the need for a specialized \mintinline{coq}{join} function
-while also improving the efficiency of the algorithm.
+uses multiple matrices to represent the collection of constraints. Beyond improving the algorithm's
+efficiency, this representation would simplify greatly the implementation of the 
+\mintinline{coq}{join} function.
 
 One could also approach this from the perspective of generalizing our constraints container from
 the algorithm. A \mintinline{coq}{Module Type} could be defined which implements the required 
@@ -167,17 +167,17 @@ function returns \mintinline{coq}{true}. This could be used to develop a satisfi
 
 Notice that our algorithm also constructs additive octagonal bounds of the form $x - x \le d$.
 These constraints will hold as long as $d$ is a non-negative integer, regardless of the assignment
-of $x$. In fact, \cite{HarveyStuckey} proves that having a constraint of the form $x - x \le d$
+of $x$. In fact, \cite{HarveyStuckey} proves that deriving a constraint of the form $x - x \le d$
 for a negative $d$ is sufficient and necessary to prove that the original constraints were 
 unsatisfiable, that is, they are not satisfiable under any model.
 
 If we had the completeness result, we could implement a satisfiability checker which checks 
-whether the constraint $x - x \le d$ with negative $d$ is implied by the original constraints.
+whether the constraint $x - x \le -1$ is implied by the original constraints, for any variable $x$.
 Then, if the checker is unable to say that the implication holds, through completeness we would
 be able to assert that the constraints are satisfiable.
 
-Nevertheless, the proof for completeness appears to be too large in scope to be included, so we
-concluded it was out of scope for this project. While it would be a welcome addition to the project,
-we are currently relying in external SMT solvers to guarantee the satisfiability of constraints, 
-which largely lowers the priority of a Coq implementation since it would not be solving any new
-problems.
+While completeness is a nice property to have, it has never been a requirement of the \verb|FORVES2|
+project. Thanks to the SMTCoq project\cite{EMT+17} we can rely on external SMT solvers to prove
+that a set of restrictions is satisfiable and verify their results. That is why in this project
+we opted to focus in soundness over completeness. Nevertheless, it would be the most natural 
+extension of the concepts discussed in this project.
