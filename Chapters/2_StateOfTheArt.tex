@@ -274,7 +274,6 @@ application of successive rules to iteratively construct the transitive closure.
 \section{The Coq Proof Assistant}
 \label{cap:coq-proof-assistant}
 
-% TODO: Fill in with general info about Coq
 From Coq's website\footnote{\url{https://coq.inria.fr/}}
 
 \begin{quote}
@@ -504,9 +503,6 @@ Fixpoint is_zero(n: nat): bool :=
 \mintinline{coq}{Fixpoint} functions in Coq also have the catch that Coq must be able to ensure that
 they are terminating. Therefore, a function that loops infinitely cannot be defined in Coq. 
 
-% TODO: Simply let the command fail
-% To show this, we use the \mintinline{coq}{Fail} command, which takes another command and succeeds if it fails. It also
-% shows the reason why it failed.
 \begin{minted}{coq}
 Fixpoint loop (n: nat): nat := loop n.
 \end{minted}
@@ -636,8 +632,6 @@ Check (1 + 1)%N.
 \subsection{Coq as a theorem prover}
 \label{sect:coq-proof-assistant}
 \definecolor{goalbg}{rgb}{0.98,0.95,0.95}
-
-% TODO: Talk about hypothesis and thesis
 
 Besides the commands that allow you to interface with the programming language, Coq also offers commands
 with which you can define theorems and prove them. In fact, the commands \mintinline{coq}{Theorem}, 

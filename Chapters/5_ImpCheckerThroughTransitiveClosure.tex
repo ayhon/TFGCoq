@@ -226,8 +226,7 @@ Definition term_value(m: model)(t: term): Z :=
 % Introduce the papers which inspired us to follow this approach
 
 In this new file we have also ported over a more general definition of implication of
-constraints, which works over conjunctions. Since we showed in the previous chapter
-% TODO: Add ref
+constraints, which works over conjunctions. Since we showed in Chapter \ref{cap:definitions}
 that conjunction implication checkers are equivalent to implication checkers, in this
 file we drop the requirement of disjunctions in the constraints and simply treat our
 hypothesis as conjunctions of constraints.
@@ -404,12 +403,6 @@ Qed.
 
 The proofs for these theorems can be found in the file \verb|octagon.v| in \verb|FORVES2|'s GitHub
 repository.
-
-% DONE: Elaborate a bit more here
-% DONE: Update references to new "future work" section
-% DONE: Explain scopes (such as %N)
-% DONE: Eliminate contractions from the whole text
-% DONE: Check there is no overflow of mintedinline in a page
 
 With this \mintinline{coq}{iterate} function defined and the \mintinline{coq}{iterate_implication}
 theorem proven, the only piece left to construct our implication checker is a function which would
