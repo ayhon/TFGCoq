@@ -1,15 +1,112 @@
 \chapter{Conclusions and Future Work}
 \label{cap:conclusions}
 
+We have therefore implemented an algorithm which, when given a list of octagonal
+hypothesis constraints and an octagonal thesis constraint, will determine whether
+the thesis constraint can be obtained from the hypothesis. If this algorithm
+determines that it is possible, we have also formally verified that the implication
+holds true, and can therefore be relied on by different parts of the project.
+
+We can now employ our algorithm to solve the problem introduced in Chapter
+\ref{cap:state-of-the-art}. The Listings \ref{lst:evm-original} and \ref{lst:evm-optimized}
+were shown to both leave the stack in the same configuration, but they could
+not be considered semantically equivalent unless some conditions were met. In
+particular, these conditions were:
+\begin{align}
+    \label{constr:T1} x_4 &= 0 \\
+    \label{constr:T2} x_0 &\ge x_2 + 32
+\end{align}
+
+In Section \ref{sect:optimization-smart-contracts} we proved that \ref{constr:T1} and \ref{constr:T2} could be derived under the following constraints.
+
+\begin{align*}
+    x_4 &= x_5 \\
+    x_5 &= 0 \\
+    x_0 &\ge x_2 + 128
+\end{align*}
+
+Now, however, we are able to use the implication checker implemented in Chapter
+\ref{cap:imp-checker} to test this. First, we need to transform our hypothesis
+constraints into octagonal constraints. To do so, we follow the instructions
+described in Chapter \ref{cap:definitions}.
+
+\begin{align*}
+    x_4 = x_5 &\Longrightarrow x_4 - _5 \le 0 \ \wedge\  x_5 - x_4 \le 0
+    \\
+    x_5 = 0 &\Longrightarrow x_5 \le 0 \ \wedge\ -x_5 \le 0
+    \\
+    x_0 \ge x_2 + 128 &\Longrightarrow x_2 - x_0 \le -128
+\end{align*}
+
+To ease the definition of multiple constraints, we make use of the following
+convenience functions.
+
+\begin{minted}{coq}
+Program Definition mkadd_pp(x: nat)(y: nat)(d: Z) :=
+  AddConstr (Build_term 1 x) (Build_term 1 y) d.
+Program Definition mkadd_pn(x: nat)(y: nat)(d: Z) :=
+  AddConstr (Build_term 1 x) (Build_term (-1) y) d.
+Program Definition mkadd_nn(x: nat)(y: nat)(d: Z) :=
+  AddConstr (Build_term (-1) x) (Build_term (-1) y) d.
+Program Definition mkbnd_p(x: nat)(d: Z) :=
+  BndConstr (Build_term 1 x) d.
+Program Definition mkbnd_n(x: nat)(d: Z) :=
+  BndConstr (Build_term (-1) x) d.
+\end{minted}
+
+With these functions, we define the list of constraints which represent the
+context of our application.
+
+\begin{minted}{coq}
+Local Definition C := 
+  (* Obtained from [x4 = x5] *)
+  [ Octagon.mkadd_pn 4 5 0   (*  x4 - x5 <= 0 *)
+  ; Octagon.mkadd_pn 5 4 0   (*  x5 - x4 <= 0 *)
+  (* Obtained from [x5 = 0] *)
+  ; Octagon.mkbnd_p 5 0      (*  x5 <= 0*)
+  ; Octagon.mkbnd_n 5 0      (* -x5 <= 0*)
+  (* Obtained from [x0 >= x2 + 128] *)
+  ; Octagon.mkadd_pn 2 0 (-128) (*  x2 - x0 <= -128 *)
+].
+\end{minted}
+
+This transformation we made for our hypothesis also needs to be made for our
+thesis. In particular, \ref{constr:T1} transforms into the constraints $x_4 \le 0$
+and $-x_4 \le 0$, which means we will need to check that both of them hold to
+conclude that it holds for \ref{constr:T1}.
+
+\begin{minted}{coq}
+Local Definition checker: Constraint -> bool := 
+    conj_imp_checker_fun (conj_trans_closure_checker (2 * length C)) C.
+
+(* x4 = 0 *)
+Compute checker (Octagon.mkbnd_p 4 0) && checker (Octagon.mkbnd_n 4 0).
+(* x0 >= x2 + 32 *)
+Compute checker (Octagon.mkadd_pn 2 0 (-32)).
+\end{minted}
+\vspace{-\baselineskip*3/2}
+\begin{minted}[bgcolor=outputbg]{coq}
+checker is defined
+
+= true
+     : bool
+
+= true
+     : bool
+\end{minted}
+
+\section{Future work}
+\label{sect:future-work}
+
 The original objective of this project was to develop an implication checker in Coq
 and verify its soundness. The objective of the project has therefore been achieved,
 however there is work to be done before it can be used in \verb|FORVES2| directly.
 While the algorithm is implemented and proven to be correct, before it can be used
-we need to connect it to the definitions found in \mintinline{coq}{constraints.v}.
+we need to connect it to the definitions found in \mintinline{coq}{constraints.v},
+those defined in Chapter \ref{cap:definitions}.
 
-To do so, one would need to bridge the definitions between both files. The first definition
-to bridge would be that of \mintinline{coq}{Octagon.model} and 
-\mintinline{coq}{Constraints.assignment}. Both represent functions which transform naturals
+The first definition to bridge would be those representing state, \mintinline{coq}{Octagon.model} 
+and \mintinline{coq}{Constraints.assignment}. Both represent functions which transform naturals
 to values, but \mintinline{coq}{Octagon.model} gives integers (\mintinline{coq}{Z}) while
 \mintinline{coq}{Constraints.assignment} gives naturals (\mintinline{coq}{N}). The first
 step would be to show that \mintinline{coq}{Octagon.model} contains 
@@ -19,17 +116,19 @@ Definition translate_model:
     Constraint.assigment -> Octagon.model.
 \end{minted}
 
-Then, a transform of \mintinline{coq}{Constraints.constraint}s to 
+Afterwards, a transform of \mintinline{coq}{Constraints.constraint}s to 
 \mintinline{coq}{Octagon.Constraint}s using the rules outlined in Chapter 
-\ref{cap:definitions} would need to be defined. We can assume this transformation to look
-something like the following.
+\ref{cap:definitions} would need to be defined. We can assume this transformation's
+signature to be something similar to the following.
 \begin{minted}{coq}
 Definition translate_constraints: 
     Constraint.conjunction -> list Octagon.Constraint.
 \end{minted}
 
-\noindent Then, we'd need to show that our \mintinline{coq}{translate_constraints} function
-preserves the information contained in the constraints.
+\noindent Then, we would need to show that our \mintinline{coq}{translate_constraints} function
+preserves the information contained in the constraints. That is, some model satisfies some 
+constraints if and only if the translated model also satisfies the constraints.
+
 \begin{minted}{coq}
 Lemma translate_preserves_information(C: list Constraint.constraint) :
   forall (m: Constraint.assigment),
@@ -39,17 +138,18 @@ Lemma translate_preserves_information(C: list Constraint.constraint) :
       Octagon.satisfies_constraints m_oct C_oct = true.
 \end{minted}
 
-Armed with these results we could finally define a \mintinline{coq}{Constraint.conj_imp_checker}
+Armed with these results we could define a \mintinline{coq}{Constraint.conj_imp_checker}
 which would work by translating the constraints from the \mintinline{coq}{Constraint} model to
 the \mintinline{coq}{Octagon}'s one and asking whether these imply the provided thesis constraints
-using \mintinline{coq}{Octagon.conj_trans_closure_checker}. Notice that, since we haven't defined
+using \mintinline{coq}{Octagon.conj_trans_closure_checker}. Notice that, since we have not defined
 a translation between single constraints, our initial single thesis constraint may now correspond
-to multiple ones. Using the \mintinline{coq}{translate_preserves_information} lemma we would then
-show that the soundness of \mintinline{coq}{Octagon.conj_trans_closure_checker} implies that of 
-this checker.
+to multiple ones. This can be solved by calling the checking function as many times as thesis 
+constraints need to be proven, and ensuring that all of them hold. Using the 
+\mintinline{coq}{translate_preserves_information} lemma we would then show that the soundness of 
+\mintinline{coq}{Octagon.conj_trans_closure_checker} implies that of this checker.
 
 Beyond the connection between the theories described in \mintinline{coq}{constraints.v} and 
-\mintinline{coq}{octagon.v}, there's also the possibility of improving the runtime of the
+\mintinline{coq}{octagon.v}, there  is also the possibility of improving the runtime of the
 transitive closure algorithm. For instance, \cite{TransitiveClosure} mentions an algorithm which
 uses multiple matrices to represent the collection of constraints. Beyond being more efficient, 
 this representation would do away with the need for a specialized \mintinline{coq}{join} function

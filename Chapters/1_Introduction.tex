@@ -40,7 +40,7 @@ To mitigate this risk, the \verb|FORVES|
 project aims to develop a verifier which is able to guarantee that an optimization of a jump-free
 sequence of EVM instructions (that is, without pieces of code that are conditionally executed)
 retains the same semantics as the original unoptimized version. \verb|FORVES| works by computing the 
-resulting state after the execution of both sequences and applying simplifying them to prove their
+resulting state after the execution of both sequences and simplifying them to prove their
 equivalence.
 This, however, does not by itself suffice to appease the worries of the \emph{smart contract} 
 developer, since we have merely pushed the burden of trust from the optimizer to the verifier. If the 
@@ -55,7 +55,7 @@ such as Coq is that the burden of proof is placed on a small core subset of its 
 been deeply scrutinized by mathematicians, and out of which all the other functionalities are built.
 Therefore, to trust that a Coq-certified program is correct is equivalent to trusting that the Coq  
 kernel is correct, which is a much greater 
-assurance\footnote{There are even efforts to verify Coq in Coq!\cite{sozeau:hal-04077552}}. 
+assurance\footnote{There are even efforts to verify Coq in Coq!\ \cite{sozeau:hal-04077552}}. 
 Many different projects have taken advantage of this fact to develop pieces of critical software which
 can be trusted upon \cite{ConCert,FiatCryptoSP19,CompCert,Iris,Cosette}. A brief description of these projects can be found in Chapter 
     \ref{cap:state-of-the-art}.
@@ -94,7 +94,7 @@ can be reordered without altering the final result.
 
 The contextual information which \verb|FORVES2| is interested in are constraints of the form 
 $x + d \le y + d'$ where $x$ and $y$ represent variables which point to EVM values (which themselves
-are a subset of the integers) and $d$ and $d'$ are integer constants. In particular from the previous
+are a subset of the integers) and $d$ and $d'$ are integer constants. In particular, from the previous
 constraints we can also derive the constraints of the form $x \ge y$, $x = d$ or $x < y + d'$ by taking
 advantage of the symmetry of the order relation, the combination of multiple constraints or the fact
 that $x \le k$ for $x$ and $k$ integers implies that $x < k + 1$. 
@@ -122,8 +122,8 @@ project, this constraint solver must be verified in Coq. To do so, we set the fo
 \section{Work plan}
 \label{sect:work-plan}
 
-Each objective was further subdivided in various tasks. These tasks where then distributed between the aloted
-time frame for the project.
+Each objective was further subdivided in various tasks. These tasks were then distributed between the 
+allotted time frame for the project.
 
 \begin{enumerate}
     \item Study Coq as a tool for the development of verified software. \\
@@ -135,7 +135,7 @@ time frame for the project.
     \item Model the problem in Coq.
     \begin{enumerate}[label={2.{\arabic*}.}]
         \item\label{task:2.1} Define the structure of the desired constraints.
-        \item\label{task:2.2} Define the correct notion of equivalence.
+        \item\label{task:2.2} Define the correct notion of implication.
         \item\label{task:2.3} Define what is an implementation checker.
     \end{enumerate}
     
@@ -159,13 +159,13 @@ problem in Coq, by deciding and stabilizing the definitions that were going to b
 implementing a basic implication checker to test how these definitions would fit in the
 bigger scope of the project. During this month various algorithms were also considered to
 implement the constraint solver. The implementation of the final implication checker was
-left for may, by developing the chosen algorithm in Coq and deriving the theory necessary
+left for May, by developing the chosen algorithm in Coq and deriving the theory necessary
 to verify it. This theory ended up being developed independently of the definitions of the
 project, and we considered linking this theory with the rest of the project as an 
 additional subtask, but we quickly realized this effort was out of scope for the project.
-See Chapter \ref{cap:conclusions} for more information.
+See Section \ref{sect:future-work} for more information.
 
-The final development cycle can be visualized in the following Gant diagram.
+The final development cycle can be visualized in the following Gantt diagram.
 
 \setganttlinklabel{s-s}{START-TO-START}
 \setganttlinklabel{f-s}{FINISH-TO-START}
@@ -222,7 +222,10 @@ The final development cycle can be visualized in the following Gant diagram.
 
 
 The project is developed in \verb|FORVES2|'s GitHub repository\footnote{\url{https://github.com/costa-group/forves2}}. 
-The files relevant to this project are \verb|constraints.v| and \verb|octagon.v|, with the former using some terms
-defined in other files in the project.
+The files relevant to this project are 
+\href{https://github.com/costa-group/forves2/blob/8ec2a66dd44e0c695668d04dbe08f68ef5b56fb4/constraints.v}{\texttt{constraints.v}}
+and 
+\href{https://github.com/costa-group/forves2/blob/8ec2a66dd44e0c695668d04dbe08f68ef5b56fb4/octagon.v}{\texttt{octagon.v}},
+with the former using  some terms defined in other files in the project.
 
 

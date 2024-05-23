@@ -35,11 +35,10 @@ way in which we represent assignments in mathematics is through functions, and t
 method preferred by Coq since it eases its use in proofs. Therefore, the state our program's 
 transform can be though of as a function with the signature \mintinline{coq}{Variable -> Value}.
 
-The Ethereum Virtual Machine is a stack-based virtual machine with access to memory. Therefore,
-variable values can be either regions of memory or elements which have been pushed into the stack. 
-Since the Ethereum Virtual Machine is a low-level virtual machine, it works on the byte level, usually
-by grouping them in sequences of 32 called words. These words cover all possible values our variables 
-can take.
+As we explained in Chapter \ref{sect:blockchain}, the Ethereum Virtual Machine is a stack-based
+virtual machine with an added memory and storage models Since the Ethereum Virtual Machine is a 
+low-level virtual machine, it works on the byte level, usually by grouping them in sequences of 
+32 called words. These words cover all possible values our variables can take.
 
 \begin{minted}{coq}
 Definition EVMWord := word EVMWordSize. 
@@ -48,21 +47,25 @@ Definition EVMWord := word EVMWordSize.
                =               256             *)
 \end{minted}
 
-Therefore, we can define the state of an EVM application to be a function from \mintinline{coq}{nat} 
-to \mintinline{coq}{EVMWord}, which is precisely how they are defined in \verb|constraints.v|.
+In a smart contract the values of variables live either in memory or in storage, while the stack is
+instead reserved for temporary values. Therefore it is safe to assume that the values we are 
+interested in will be stored in memory or storage. For the purposes of the model, whether a variable
+is stored in memory or storage is not relevant, and so we make no such distinction. Since in the
+execution of a program there is a finite number of variables, each can be represented by a natural
+number. We can then represent the status of all variables in our program to be a function from 
+\mintinline{coq}{nat} to \mintinline{coq}{EVMWord}, which is precisely how they are defined in 
+\href{https://github.com/costa-group/forves2/blob/8ec2a66dd44e0c695668d04dbe08f68ef5b56fb4/constraints.v}
+{\texttt{constraints.v}}.
 
 \begin{minted}{coq}
 Definition assignment : Type := nat -> EVMWord.
 \end{minted}
 
-When a program is executed in the EVM a new stack is created for its execution, destroying it at the
-end with whichever values it had left over. To make changes persistent these need to be assigned to
-memory. We can then represent our EVM programs as functions of type
-\mintinline{coq}{assignmet -> assignment} where \mintinline{coq}{assignment} represents the status of
-memory. We can think of our variables as the regions in memory we are interested about.
-
-Since a program is then just a function we can define semantic equality through the principle of
-function extensionality, which says that if for all possible inputs two functions output the same
+EVM programs can then be represented as functions which take an initial state of type 
+\mintinline{coq}{assignment}, transforms it, and returns a final state, also of type
+\mintinline{coq}{assignment}. Since a program is just a function of type
+\mintinline{coq}{assignment -> assignment} we can define semantic equality through the principle of
+functional extensionality, which says that if for all possible inputs two functions output the same
 values then the functions must be the same.
 
 \begin{minted}{coq}
@@ -71,11 +74,11 @@ Axiom functional_extensionality : forall {X Y: Type}
   (forall (x:X), f x = g x) → f = g.
 \end{minted}
 
-Functional extensionality is not native to Coq, since it cannot be proven directly. Therefore, if we
+Functional \href{}{extensionality} is not native to Coq, since it cannot be proven directly. Therefore, if we
 wanted to use it we would need to add it as an axiom. Fortunately, adding this axiom is known to keep
 Coq's logic consistent, which means that we cannot prove a proposition simultaneously to be true and 
-false. Since it is harmless to add it, it is defined in Coq's standard library, under 
-\mintinline{coq}{Coq.Logic.FunctionalExtensionality}, althought not in the form described before. Coq's functional
+false. Since it is harmless, Coq provides it as a definition in its standard library, under 
+\mintinline{coq}{Coq.Logic.FunctionalExtensionality}, although not in the form described before. Coq's functional
 extensionality axiom is tweaked to also work with functions which return dependent types. Our 
 \mintinline{coq}{functional_extensionality} proposition is then derived from this axiom.
 
@@ -88,17 +91,17 @@ Axiom functional_extensionality_dep : forall {A} {B : A -> Type},
 Unfortunately, proceeding with this approach is unfeasible since testing all possible assignments for
 the complete program is too complex. Therefore, the approach followed by \verb|FORVES| is different.
 Instead, it records the effects of the execution of both programs on a generic model of the state and
-simplifies  them to a canonical state to see if they're equivalent, by applying simplification rules.
-Furthermore, \verb|FORVES| doesn't test the transformation performed by the whole program, but only of 
+simplifies them to a canonical state to see if they are equivalent, by applying simplification rules.
+Furthermore, \verb|FORVES| does not test the transformation performed by the whole program, but only of 
 jump-free sequences of instructions. This had the added benefit of not having to worry about 
 conditionals with the added cost that we can no longer make any assumptions about the stack. However 
 this is easily fixed by extending our \mintinline{coq}{assignment} definition to also include 
 variables representing elements in the stack, not only offsets in memory.
 
 Furthermore, we may also not need to consider all states, since not all states are reachable at a 
-particular point in the code. For instance, if a piece of code is only reachable through an if 
-condition which checks for an invariant $P$, we can assume that the invariant holds for the final
-assignment. Consider the following snippets of code.
+particular point in the code. For instance, if a piece of code is only reachable through a
+conditional statement which checks for an invariant $P$, we can assume that the invariant holds for the 
+final assignment. Consider the following snippets of code.
 
 \begin{minted}{c}
 if(x > y){
@@ -112,7 +115,7 @@ if(x > y){
 \end{minted}
 
 The result of executing the section inside the \mintinline{c}{if} statement in the first snippet is 
-setting the variable \mintinline{coq}{z} to \mintinline{coq}{x-y}, while in the second snippet it's
+setting the variable \mintinline{coq}{z} to \mintinline{coq}{x-y}, while in the second snippet it is
 set to \mintinline{coq}{abs(x-y)}. Both of these effects are not equivalent if we consider an initial
 state of \mintinline{js}{{x:0, y:1}} since then ${x-y} = -1 \ne 1 = \lvert-1\rvert$. However,
 the condition in the \mintinline{coq}{if} statement discards these types of states. We can represent
@@ -121,7 +124,7 @@ follow.
 
 Therefore, for some optimizations we may want to ask for some special condition to be applied.
 For example, in the previous example we may consider simplifying \mintinline{coq}{abs(z)} to
-\mintinline{coq}{z} if we're able to show that \mintinline{coq}{z > 0}. Sometimes, these conditions
+\mintinline{coq}{z} if we are able to show that \mintinline{coq}{z > 0}. Sometimes, these conditions
 are not explicitly stated in the context, but can instead be derived from it. Consider an optimization
 \mintinline{coq}{add_zero}, which says that if we have \mintinline{coq}{x0 + x1} and 
 \mintinline{coq}{x0} is zero then this is equivalent to just having \mintinline{coq}{x1}. This 
@@ -136,10 +139,10 @@ else {
 }
 \end{minted}
 
-When we reach the \mintinline{coq}{else} branch the contextual information we've recorded is that 
+When we reach the \mintinline{coq}{else} branch the contextual information we have recorded is that 
 $x \le 0$ and $x \ge 0$, but not $x = 0$. However, we know that having $x \le 0$ and $x \ge 0$ implies 
 $x = 0$. Therefore, to apply the optimization \mintinline{coq}{add_zero} we need to be able to show 
-that the current contextual information we have implies the conditions we need, not that it's present
+that the current contextual information we have implies the conditions we need, not that it is present
 explicitly.
 
 \section{Representation of constraints}
@@ -150,9 +153,9 @@ are arithmetic, which means the only conditions we are interested in are equalit
 
 \begin{minted}{coq}
 Inductive constraint : Type :=
-  | C_LT (l r : cliteral)
-  | C_EQ (l r : cliteral)
-  | C_LE (l r : cliteral).
+  | C_LT (l r : cliteral) (* l <  r *)
+  | C_EQ (l r : cliteral) (* l == r *)
+  | C_LE (l r : cliteral).(* l <= r *)
 \end{minted}
 
 We call \mintinline{coq}{cliteral}s to the elements we compare. In general, we are interested in 
@@ -236,14 +239,18 @@ all states which satisfy $cs$ and $State_{\texttt{c}}$ is the set of all states 
 $State_{\texttt{cs}} \subset State_{\texttt{c}}$. In Coq, we would write
 
 \begin{minted}{coq}
-Definition imply(cs: constraints)(c: constraint) := forall (m: assignment),
-  satisfies_constraints m cs = true -> satisfies_single_constraint m c = true.
+Definition imply(cs: constraints)(c: constraint) := 
+  forall (m: assignment),
+    satisfies_constraints m cs = true ->
+    satisfies_single_constraint m c = true.
 \end{minted}
 
 A similar definition follows for conjunctions instead of terms in DNF.
 \begin{minted}{coq}
-Definition conj_imply(cs: conjunction)(c: constraint) := forall (m: assignment),
-  satisfies_conjunction m cs = true -> satisfies_single_constraint m c = true.
+Definition conj_imply(cs: conjunction)(c: constraint) := 
+  forall (m: assignment),
+    satisfies_conjunction m cs = true ->
+    satisfies_single_constraint m c = true.
 \end{minted}
 
 \section{Implication checker}
@@ -310,50 +317,50 @@ Program Definition mk_imp_checker
   imp_checker_fun (cs : constraints) c := 
     match cs with
     | [] => false
-    | _ => forallb (fun conj => conj_imp_checker_fun checker conj c) cs
+    | _ => 
+        forallb (fun conj => conj_imp_checker_fun checker conj c) cs
     end
 |}.
 \end{minted}
 
-Since we included the implication checkers invariant inside its type, Coq wo not let us finish the definition
+Since we included the implication checkers invariant inside its type, Coq will not let us finish the definition
 of this function until we have proven that this function preserves the invariant. That is why we need to use
 the \mintinline{coq}{Program} prefix to this definition, to reassure Coq that we know that the definition is not finished 
 with just the function, and that we will follow with the proof of the invariant.
 
 As we saw before, given a conjunction implication checker we can define a more general implication checker
 by running the conjunction implication checker on each conjunction in the hypothesis and making sure they 
-all hold true. We know need to show that, given that the conjunction implication checker is sound, the
+all hold true. We now need to show that, given that the conjunction implication checker is sound, the
 implication checker derived from it is sound as well. Let's look at the proof of this.
 
 We use the \mintinline{coq}{Next Obligation} command to enter in proof mode after the \mintinline{coq}{Program} definition we used before.
 
 \begin{minted}{coq}
 Next Obligation.
-  (* First we unfold the definition of imply and introduce the model in
-     its definition *)
+  (* First we unfold the definition of imply and introduce the model
+     in its definition *)
   unfold imply; intros model.
-  (* Then we obtain the conjunction's checking function and soundness proof
-     from the constructor of the conjunction implication checker *)
+  (* Then we obtain the conjunction checker's checking function and 
+     soundness proof from its constructor *)
   destruct checker as [checker checker_snd].
-  (* Next Obligation automatically introduces as many terms as possible. In
-     particular, the goal it asks to prove is whether an assignment called 
-     model satisfies the constraint c given that:
+  (* Next Obligation automatically introduces as many terms as 
+     possible. In particular, the goal it asks to prove is whether an 
+     assignment called model satisfies the constraint c given that:
        H : the checker function we have derived says that cs imply c
      We will rename H to full_checker__cs_imp_c. Full checker is the
-     checking function we have derived from the conjunction implication
-     checker's *)
+     checking function we have derived from the conjunction 
+     implication checker's *)
   rename H into full_checker__cs_imp_c.
   (* We proceed over induction on c. The base case is not reachable,
-     so we discriminate. We're only left with the inductive case. *)
+     so we discriminate. We are only left with the inductive case. *)
   induction cs as [|c' cs' IHcs']; try discriminate.
   simpl in *.
-  (* Since we're left in the case where cs = c' :: cs' and the full
+  (* Since we are left in the case where cs = c' :: cs' and the full
      checker said that cs imply c, by definition that means that
      c' imply c and cs' imply c. Notice that:
         cs': list list constraint (DNF)
          c': list constraint (conjunction)
-         c : constraint
-     *)
+         c : constraint                           *)
   apply Bool.andb_true_iff in full_checker__cs_imp_c 
     as [checker__c'_imp_c checker__cs'_imp_c].
   (* Moreso, to show that the disjuntion c' \⁄ cs'' implies c we
@@ -397,7 +404,8 @@ Program Definition inclusion_conj_imp_checker: conj_imp_checker := {|
   conj_imp_checker_fun := fun cs c => existsb (eqc c) cs
 |}.
 (* Proof left as an exercise to the reader *)
-Definition inclusion_imp_checker := mk_imp_checker inclusion_conj_imp_checker.
+Definition inclusion_imp_checker := 
+    mk_imp_checker inclusion_conj_imp_checker.
 \end{minted}
 
 While we have defined our implication checkers to be best-effort, we of course would

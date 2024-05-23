@@ -1,21 +1,19 @@
 \chapter{State of the art}
 \label{cap:state-of-the-art}
 
-% Capítulo 2: ESTADO DEL ARTE
-% 2.1 Blockchain
-% 2.1.1 Qué es
-% 2.1.2 Ethereum y los contratos inteligente
-% 2.1.3 EVM: aquí metería todas las explicaciones de bajo nivel sobre la ejecución de EVM y el ejemplo de la ejecución de los dos smart contracts (sin centrarme todavía en su equivalencia o no)
-% 2.1.4 GASOL, optimización de smart contracts y su equivalencia. Ver cómo los dos smart contracts anteriores son equivalentes si se verifican las restricciones necesarias, que es lo que generaría tu resolutor
-% 2.2 Restricciones y algoritmos para comprobarlas/generar el cierre transitivo
-% 2.3 The Coq Proof Assistant
-% 2.3.1 Funciones
-% 2.3.2 Demostraciones
-% 2.3.3 Curry/Howard
+This chapter is divided in three sections, each touching upon a specific
+technology of interest for this project. In the first section we give an
+overview of blockchain technology and smart contracts, focusing on Ethereum's
+implementation. We also touch upon the topic of EVM optimization and the 
+\verb|GASOL| project. In the next section we introduce the concept of 
+``octagonal constrainst'' and give further background in relevant results of
+its field which will be of use in Section \ref{sect:tightened-transitive-closure}.
+In the last section we give an in-depth overview of the Coq proof assistant.
 
 \section{Blockchain}
+\label{sect:blockchain}
 
-A block-chain implements a distributed ledger, a database of transactions
+A blockchain implements a distributed ledger, a database of transactions
 between entities which is not hosted by any central authority but shared
 among multiple computers in a network. The name comes from the mechanism
 in which these transactions are stored: groups of transactions called
@@ -42,7 +40,7 @@ applications (DApps).
 Ethereum is a prominent blockchain platform which stands out for its robust
 support for smart contracts through the Ethereum Virtual Machine (EVM). The
 EVM is a runtime environment that enables the execution of code written in
-Ethereum's native language, Solidity. Solidity code is compiled into EVM 
+high-level languages like Solidity. Solidity code is compiled into EVM 
 bytecode, which is composed of instructions operating on a stack-based 
 virtual machine. Each operation performed in the EVM incurs a cost measured 
 in gas, Ethereum's unit of computational cost. This cost is covered by the 
@@ -54,12 +52,21 @@ be mindful of their use of resources. This contributes to preventing spam
 attacks and resource abuse, ensuring the stability and sustainability of the 
 Ethereum ecosystem.
 
-As stated in Ethereum's Yellow Paper \cite{wood2014ethereum}, the EVM is a 
-stack-based machine virtual machine, with added access to a system of persistent 
-storage commonly referred to as memory. The word size of the machine is 256-bits.
-When a smart contract is to be executed, a new stack of up-to 1024 words is 
-created for its execution, which will be destroyed after the execution has 
-completed. Therefore, for a change to be persisted between executions it needs
+As stated in Ethereum's Yellow Paper \cite{wood2014ethereum} the EVM is a 
+stack-based machine virtual machine with a memory model. The word size of the
+machine is 256-bits, so 256-bits values are the maximum which can be handled
+by the stack and virtual machine. When a smart contract is to be executed, 
+a new stack of up-to 1024 words is created for its execution, which will be 
+destroyed after the execution has completed. The main purpose of the stack is
+to provide the arguments to bytecode instructions and host temporary values.
+For more long-lived values the EVM provides two solutions: the \emph{memory} for
+local variables and the \emph{storage} for global variables. The memory is a 
+word-addressed byte array used to store volatile, while the storage is a global
+memory which persists its state between smart contract calls. The storage's
+state is part of the state of the blockchain, while the memory is unique to
+the machine which executes the contract.
+
+Therefore, for a change to be persisted between executions it needs
 to be recorded in memory.
 
 EVM instructions modify the state of the EVM in two main ways:
@@ -77,23 +84,21 @@ EVM instructions modify the state of the EVM in two main ways:
     \end{Verbatim}
 
     \item Producing an effect. \\
-    An \emph{effect} is any change which can be observed by an external process.
-    Since the memory storage is persistent, writing to memory is an effect.
-    For example, the \textcolor{red}{\texttt{MSTORE}} instruction pops the
-    first two elements of the stack and stores the value of the second
-    element in the memory offset referenced by the first element. The addressing
-    in EVM is done per byte, and since the word-size is $256$, consecutive addresses
-    in memory differ by $32$. When simulating the execution of a program, we 
-    represent effects, if present, by putting them in parenthesis next to the state 
-    of the stack.
+    An \emph{effect} is any change which can be observed outside of the stack.
+    Both writing to memory and storage are considered as effects. For example,
+    the \textcolor{red}{\texttt{MSTORE}} instruction pops the first two elements
+    of the stack and stores the value of the second element in the memory offset
+    referenced by the first element. When simulating the execution of a program, 
+    we represent effects, if present, by putting them in parenthesis next to the 
+    state of the stack.
     \begin{Verbatim}[commandchars=\\\{\}]
     [x0,x1]
      ↓ \textcolor{red}{MSTORE}
     []   \textcolor{teal}{(MEM[x0] = x1)}
-    \end{Verbatim}
+    \end{Verbatim} 
 \end{itemize}
 
-The EVM defines much more instructions. For the purposes of this chapter, only a few
+The EVM defines many more instructions. For the purposes of this chapter, only a few
 more will be described.
 \begin{itemize}
     \item \textcolor{red}{\texttt{SWAP1}} exchanges the top element in the stack with the
@@ -129,7 +134,8 @@ more will be described.
 \end{itemize}
 
 
-For instance, consider the foll %TODO: Redact
+Consider the following bytecode sequences in Listings 
+\ref{lst:evm-original} and \ref{lst:evm-optimized}.
 
 \begin{listing}[!ht]
 {\color{red}
@@ -151,8 +157,9 @@ MSTORE MSTORE POP
 \label{lst:evm-optimized}
 \end{listing}
 
-% TODO: Link 
-Consider the execution of the first program (\ref{lst:evm-original}).
+With the previously defined format for representing EVM bytecode 
+execution, we can represent the effects of executing both of these
+programs. First, consider the execution of Listing \ref{lst:evm-original}.
 
 \begin{Verbatim}[commandchars=\\\{\}]
 [x0,x1,x2,x3,x4,x5]
@@ -176,7 +183,7 @@ Consider the execution of the first program (\ref{lst:evm-original}).
 [x5]          \textcolor{teal}{(MEM[x2] = x3; MEM[x0] = x4+x1)}
 \end{Verbatim}
 
-Finally, consider the execution of the second program (\ref{lst:evm-optimized})
+Finally, consider the execution of the Listing \ref{lst:evm-optimized}
 
 \begin{Verbatim}[commandchars=\\\{\}]
 [x0,x1,x2,x3,x4,x5]
@@ -188,7 +195,14 @@ Finally, consider the execution of the second program (\ref{lst:evm-optimized})
 [x5]          \textcolor{teal}{(MEM[x0] = x1; MEM[x2] = x3)}
 \end{Verbatim}
 
+Both listings produce different effects upon execution. However, under
+some special circumstances, which will be explored in the next section,
+both listings can be shown to be equivalent. Under these circumstances,
+Listing \ref{lst:evm-optimized} would be preferable over \ref{lst:evm-original}
+since it uses less and cheaper instructions.
+
 \subsection{Optimization of smart contracts}
+\label{sect:optimization-smart-contracts}
 
 The \verb|GASOL| project implements a superoptimizer for EVM bytecode. Superoptimization 
 is a compilation technique that searches, for a given jump-free sequence of 
@@ -201,19 +215,20 @@ In doing so, it remembers which conditions triggered those jumps so it can gain 
 information on which states of the program are possible for each section.
 
 The \verb|FORVES| project, although not dependent on \verb|GASOL|, was originally started
-to certify that its optimizations didn't modify the semantic of the given programs. That is
+to certify that its optimizations did not modify the semantic of the given programs. That is
 why \verb|FORVES| inherited the requirement that the sequences of instructions be jump-free.
 The currently implemented \verb|FORVES| verifier has been thoroughly tested on outputs of
 \verb|GASOL|, but some optimizations prove harder to verify than others. 
 
-For instance, the previously presented listings \ref{lst:evm-original} and \ref{lst:evm-optimized}
+For instance, the previously presented Listings \ref{lst:evm-original} and \ref{lst:evm-optimized}
 are unoptimized and optimized versions of the same jump-free sequence of EVM bytecode 
-instructions. While the end result of the stacks are equivalent for both executions, we can't
+instructions. While the end result of the stacks are equivalent for both executions, we cannot
 ensure that the effects they produce are equivalent. For starters, we cannot ensure that the 
 memory accesses can be commuted. After all, if \verb|x0| $=$ \verb|x2| $= 0$ then after the 
-first program we'd have {\textcolor{teal}{\texttt{MEM[0]~=~x4+x1}}} but after the second we'd have 
-{\textcolor{teal}{\texttt{MEM[0]~=~x3}}}, which need not be the same if \verb|x3| $\ne$ \verb|x4+x1|.
-Furthermore, we'd need that \verb|x4+x1| $=$ \verb|x1|, which is only possible if \verb|x4| $= 0$.
+first program we would have {\textcolor{teal}{\texttt{MEM[0]~=~x4+x1}}} but after the second 
+we would have {\textcolor{teal}{\texttt{MEM[0]~=~x3}}}, which need not be the same if 
+\verb|x3| $\ne$ \verb|x4+x1|. Furthermore, we would need that \verb|x4+x1| $=$ \verb|x1|, which 
+is only possible if \verb|x4| $= 0$.
 
 However, some of these conditions may be fulfilled if we consider the contextual information.
 For example, consider the following contextual information, a list of added constraints to the
@@ -227,7 +242,7 @@ previous variables.
 
 From the last constraint we can derive that the memory accesses to the offsets
 referenced by \verb|x0| and \verb|x2| are disjoint, since the word size of the EVM is of 32 bytes and 
-$32 < 128$. Therefore we can reorder both writes while preserving the semantics of the code.
+$32 \le 128$. Therefore we can reorder both writes while preserving the semantics of the code.
 Finally, from the first two constraints we can derive that \verb|x4| $= 0$ which ensures that \verb|x4| $+$ 
 \verb|x1| is in fact equivalent to \verb|x1|.
 
@@ -244,12 +259,12 @@ instead. This new constraint $\pm x \pm y \le \lfloor d \rfloor$ is called the \
 constraint of $\pm x \pm y \le d$.
 
 Octagonal constraints have been studied in depth in the literature. In particular, efficient
-algorithms have been derived to compute the transitive closure of a set of constraints. The
-transitive closure of a set of constraints $C$ is a set of constraints $C'$ where for every
-pair of variables $x$ and $y$ defined in the constraints of $C$ we have a $d$ such that
-the constraint $x + y \le d$ is in $C'$ and a $d'$ such that $x \le d'$ is in $C'$. Furthermore,
-the choices of $d$ and $d'$ are the smallest possible such that they can still be derived from
-the constraints in $C$.
+algorithms \cite{HarveyStuckey,TransitiveClosure} have been derived to compute the transitive
+closure of a set of constraints. The transitive closure of a set of constraints $C$ is a set 
+of constraints $C'$ where for every pair of variables $x$ and $y$ defined in the constraints 
+of $C$ we have a $d$ such that the constraint $x + y \le d$ is in $C'$ and a $d'$ such that 
+$x \le d'$ is in $C'$. Furthermore, the choices of $d$ and $d'$ are the smallest possible 
+such that they can still be derived from the constraints in $C$.
 
 In \cite{TransitiveClosure} an $O(n^3\log{n})$ algorithm is described to compute the tightened 
 transitive closure of a set of octagonal constraints where $n$ is the number of integer variables. The 
@@ -292,7 +307,7 @@ has been used extensively to verify a multitude of projects.
     an automated prover for checking equivalences of SQL queries.
 \end{itemize}
 
-In essence, it's a tool for writing and verifying mathematical proofs and developing certified software.
+In essence, it is a tool for writing and verifying mathematical proofs and developing certified software.
 To provide this functions, Coq provides a way of creating programs, functioning as a programming 
 languages, and a way to develop proofs, functioning as a proof assistant.
 
@@ -311,7 +326,6 @@ representation of its grammar. Pay attention to the final dot. All Coq commands 
 \begin{minted}{coq}
 Print Grammar constr.
 \end{minted}
-\vspace{-\baselineskip*3/2}
 \begin{minted}[bgcolor=outputbg]{coq}
 Entry constr is
 [ LEFTA
@@ -396,7 +410,7 @@ command, which prompts Coq to evaluate an expression and show its result.
 \begin{minted}{coq}
 Compute bool_identity true.
 \end{minted}
-\vspace{-\baselineskip*3/2}
+\vspace{-\baselineskip*2/2}
 \begin{minted}[bgcolor=outputbg]{coq}
 = true
      : bool
@@ -439,14 +453,14 @@ directly.
 
 When defining a new type with \mintinline{coq}{Inductive}, the constructors themselves can also take 
 arguments. This works as the main way of storing values in Coq, similar to how records work in other
-programming languages. For example, this is how we woudl define a named pair of two boolean values.
+programming languages. For example, this is how we would define a named pair of two boolean values.
 
 \begin{minted}{coq}
 Inductive two_bools := my_bools (b b': bool).
 \end{minted}
 
 Notice that \mintinline{coq}{b'} is a valid identifier in Coq. While this is not unique to Coq (OCaml 
-also has this feature), it is still novel enought to be worth pointing it out. Also notice that since 
+also has this feature), it is still novel enough to be worth pointing it out. Also notice that since 
 both \mintinline{coq}{b} and  \mintinline{coq}{b'} had the same type we could specify it under the 
 same set of parenthesis.
 
@@ -475,7 +489,7 @@ Fixpoint add (n m: nat) :=
 \end{minted}
 
 If the argument itself will not be used, you can also use the special
-identifier \mintinline{coq}{_} to discard it, like it's used in the following example 
+identifier \mintinline{coq}{_} to discard it, like it is used in the following example 
 of the function \mintinline{coq}{is_zero}.
 
 \begin{minted}{coq}
@@ -538,16 +552,16 @@ the two following statements are equivalent since they make use of the same func
 \begin{minted}{coq}
 Compute add 1 2.
 \end{minted}
-\vspace{-\baselineskip*3/2}
+\vspace{-\baselineskip*13/10}
 \begin{minted}[bgcolor=outputbg]{coq}
 = 3
      : nat
 \end{minted}
-\vspace{-\baselineskip*3/2}
+
 \begin{minted}{coq}
 Compute 1 + 2.
 \end{minted}
-\vspace{-\baselineskip*3/2}
+\vspace{-\baselineskip*13/10}
 \begin{minted}[bgcolor=outputbg]{coq}
 = 3
      : nat
@@ -577,9 +591,45 @@ Visible in scope nat_scope
 
 One thing to point out from the output of this command is the fact that boolean equality of two numbers,
 recognized as the function \mintinline{coq}{eqb}, is not expressed as \mintinline{coq}{==} or 
-\mintinline{coq}{=} but with the\mintinline{coq}{=?} symbol. This is to highlight that this operator returns a boolean
+\mintinline{coq}{=} but with the \mintinline{coq}{=?} symbol. This is to highlight that this operator returns a boolean
 value, since unlike other programming languages, booleans are not built-in into the language. Furthermore,
-the \mintinline{coq}{=} operator is reserved for some other purpose in Coq.
+the \mintinline{coq}{=} operator is reserved for some other purpose in Coq, which we will explore
+in the next section.
+
+Coq also allows overloading a symbol to different operations depending on the types of its
+operands. This can ease the readability of some proofs and theorems, however it can also
+sometimes lead to ambiguity. To prevent this, Coq offers the possibility to define this
+syntactic sugar under a scope, and later specify under which scope a given piece of syntax
+should be interpreted by. This is done by enclosing the syntax in parenthesis and following
+it with the \mintinline{coq}{\%} symbol and the name of the scope, which usually tends to
+correspond to a type.
+
+This is useful, for example, when juggling with multiple
+definitions of numbers. Besides \mintinline{coq}{nat}, Coq also defines the data-types
+\mintinline{coq}{N} and \mintinline{coq}{Z} for naturals and integers. The differences
+between \mintinline{coq}{nat} and \mintinline{coq}{N} lie in how they are defined. 
+\mintinline{coq}{nat} implements the Peano natural numbers, encoded as zero and its
+successors. \mintinline{coq}{N} on the other hand follows the computer representation
+of numbers, using a sequence of zeroes and ones. Fortunately, we can use the \mintinline{coq}{+}
+symbol to express addition for both data-types.
+
+\begin{minted}{coq}
+Check (1 + 1)%nat. 
+\end{minted}
+\vspace{-\baselineskip*3/2}
+\begin{minted}[bgcolor=outputbg]{coq}
+(1 + 1)%N
+     : N
+\end{minted}
+
+\begin{minted}{coq}
+Check (1 + 1)%N. 
+\end{minted}
+\vspace{-\baselineskip*3/2}
+\begin{minted}[bgcolor=outputbg]{coq}
+(1 + 1)%nat
+     : nat
+\end{minted}
 
 
 
@@ -602,8 +652,8 @@ proposition with its name instead of the \mintinline{coq}{:=} symbol as we did i
 Example true_is_true : true = true.
 \end{minted}
 
-The proposition appears after the first \mintinline{coq}{:}, and it follows a similar syntax to 
-expressions. % Warning 1 of Cury-Howard correspondance
+The proposition appears after the first \mintinline{coq}{:} symbol, and it follows a similar syntax 
+to expressions. % Warning 1 of Cury-Howard correspondance
 After this command is executed Coq registers the proposition you want to prove and awaits for you
 to provide a proof of this proposition. We do this by entering proof mode using the 
 \mintinline{coq}{Proof} command.
@@ -644,9 +694,9 @@ Qed.
 \label{lst:true-is-true}
 \end{figure}
 
-This example is not terribly exciting. In general we are more interested if we can prove a property for a
-bigger set of values, not just one. To achieve this in Coq we use the \mintinline{coq}{forall} 
-keyword, which has a similar syntax to that of function application.
+This example is not terribly exciting. It would be more interesting if we could prove a property 
+for a greater amount of values, not just one. To achieve this in Coq we use the
+\mintinline{coq}{forall} keyword, which has a similar syntax to that of function application.
 % Warning 2 of Cury-Howard correspondance
 
 \begin{figure}[!ht]
@@ -775,7 +825,7 @@ an argument and creates as many subgoals as constructors it has. In each of thes
 has been replaced by one of its constructors. Therefore, \mintinline{coq}{destruct} allows us to prove
 that a proposition is true depending on how the term was constructed.
 
-In this case, the first subgoal asks us to proof the following \mintinline{coq}{negb (negb true) = true}.
+In this case, the first subgoal asks us to prove \mintinline{coq}{negb (negb true) = true}.
 We can use the \mintinline{coq}{simpl} tactic to ask Coq to simplify the goal, for example by executing
 the \mintinline{coq}{negb} function through its definition. This leaves us with 
 \mintinline{coq}{true = true}, which we can prove through the \mintinline{coq}{reflexivity} tactic. The
@@ -846,7 +896,7 @@ Proof.
 Qed.
 \end{minted}
 
-We've defined \mintinline{coq}{~ P} to be \mintinline{coq}{P -> False}. If we revert the terms in that implication we have
+We have defined \mintinline{coq}{~ P} to be \mintinline{coq}{P -> False}. If we revert the terms in that implication we have
 \mintinline{coq}{False -> P} which is trivially true for any proposition \mintinline{coq}{P}. This fact is known in the literature
 as the principle of explosion or \emph{ex falso quodlibet}. In Coq this principle shows in some proofs
 where instead of proving the goal it may be convenient that with the assumed hypothesis we can derive
@@ -873,21 +923,21 @@ with the symbol \mintinline{coq}{/\ } and or with the symbol \mintinline{coq}{\/
 in mathematical notation: $\wedge$ and $\vee$.
 
 When dealing with \mintinline{coq}{/\ } in the goal, we can use the \mintinline{coq}{split} tactic to
-divide the goal into two, which we'll have to prove separately. If the \mintinline{coq}{/\} is instead
+divide the goal into two, which we will have to prove separately. If the \mintinline{coq}{/\} is instead
 in a hypothesis \mintinline{coq}{h}, we can use the \mintinline{coq}{destruct h} tactic, which would 
 separate both sides of the conjunction in different hypothesis. Coq will try to give appropriate names
-to the new hypothesis, but most of the time it's a better idea to give the names on your own. To do so,
+to the new hypothesis, but most of the time it is a better idea to give the names on your own. To do so,
 you can use \mintinline{coq}{destruct h as [hl hr]}, where \mintinline{coq}{hl} and \mintinline{coq}{hr}
 are the names given to the left and right sides of the conjunction respectively.
 
-When dealing with \mintinline{coq}{\/} in the goal, we need to decide which part of the proposition we'd
+When dealing with \mintinline{coq}{\/} in the goal, we need to decide which part of the proposition we would
 like to prove in order to prove the hypothesis. To choose the left side of the disjunction we use the
 appropriately named \mintinline{coq}{left} tactic, with the \mintinline{coq}{right} tactic choosing the
 right side of the disjunction as expected. If the \mintinline{coq}{\/} is instead in a hypothesis 
 \mintinline{coq}{h}, we can again use the \mintinline{coq}{destruct h} tactic, which will ask us to
 prove the same goal twice: once with the left side of the disjunction \mintinline{coq}{h} and once with
 the right side of the disjunction \mintinline{coq}{h}. In both of these options the sides of the 
-disjunction would replace the \mintinline{coq}{h} hypothesis, but it's also possible to rename them 
+disjunction would replace the \mintinline{coq}{h} hypothesis, but it is also possible to rename them 
 by employing the tactic as \mintinline{coq}{destruct h as [hl | hr]}, where \mintinline{coq}{hl} and
 \mintinline{coq}{hr} are again the names of the left and right side of the disjunction respectively.
 
@@ -911,7 +961,7 @@ a^b = \left(\sqrt{2}^{\sqrt{2}}\right)^{\sqrt{2}} = \sqrt{2}^{\sqrt{2}\sqrt{2}} 
 $$
 \noindent Since $2$ is rational this concludes the proof.
 
-Notice how we've concluded the proof without knowing the values of $a$ and $b$. This happened because we
+Notice how we have concluded the proof without knowing the values of $a$ and $b$. This happened because we
 were able to assume the following: 
 \begin{center}
 $\sqrt{2}^{\sqrt{2}}$ is rational ${\Large{\vee}} \sqrt{2}^{\sqrt{2}}$ is  irrational.
@@ -950,7 +1000,7 @@ ask Coq to print one of our prior proofs.
 \begin{minted}{coq}
 Print has_zero. 
 \end{minted}
-\vspace{-\baselineskip}
+\vspace{-\baselineskip*3/2}
 \begin{minted}[bgcolor=outputbg]{coq}
 has_zero = 
 ex_intro (fun n : nat => n = 0) 0 eq_refl
@@ -969,8 +1019,9 @@ following parameters:
 The feature which allows us to use Coq as a theorem prover is its type system. In fact, Coq's type system
 is not like those of other general purpose language, since it allows the definition of dependent types. A
 dependent type is a type whose definition depends on a value. This allows us to make types such as 
-\mintinline{coq}{Vector.t nat 10}, of all lists of length 10, or more importantly, since propositions are
-types it allows us to refer to individual values in our propositions, instead of just types.
+\mintinline{coq}{Vector.t nat 10}, of all lists of natural numbers of length 10, 
+or more importantly, since propositions are types it allows us to refer to individual values in our
+propositions, instead of just their types.
 
 Dependent data types can be created with the \mintinline{coq}{Record} command.
 \begin{minted}{coq}
@@ -1026,7 +1077,7 @@ previously defined \mintinline{coq}{bool_identity function}. This function is a 
 of the generic \mintinline{coq}{identity} function which works for arguments of any type. These types
 of functions are defined in other functional programming languages through the use of parametric
 polymorphism, making both the input and output types generic. However, since in Coq types are first
-class values we don't need parametric polymorphism to define such a function.
+class values we do not need parametric polymorphism to define such a function.
 \begin{minted}{coq}
 Definition identity' (A: Type)(b: A) := b. 
 Compute identity' bool true.
@@ -1095,5 +1146,5 @@ existsb_exists
        existsb f l = true <-> (exists x : A, In x l /\ f x = true)
 \end{minted}
 
-These lemmas are used extensively throughout this project, and they're also the reason why we try to
+These lemmas are used extensively throughout this project, and they are also the reason why we try to
 define things in terms of functions in the standard library whenever possible.

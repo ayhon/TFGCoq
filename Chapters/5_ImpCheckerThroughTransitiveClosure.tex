@@ -1,5 +1,5 @@
 \chapter{Implication checker from transitive closure}
-\label{cap:basic-definitions}
+\label{cap:imp-checker}
 
 Having defined what an implication checker is, we are now left with the task of
 developing the most advanced implication checker we can muster. Originally I
@@ -21,6 +21,7 @@ the author describes a $O(n^3)$ algorithm to compute the tightened transitive
 closure of a set of octagonal constraints.
 
 \section{Tightened transitive closure of octagonal constraints}
+\label{sect:tightened-transitive-closure}
 
 Octagonal constraints are constraints of the form $\pm x - \pm y \le d$ or 
 $\pm x \le d$ where $x,y,d \in \mathbb{Z}$. We say that constraints of the form
@@ -121,10 +122,6 @@ In particular, we remove the rules:
            $$
 \end{itemize}
 
-% TODO: Perhaps give an example here.
-% TODO: Explain with which rules we've left and how the rules we eliminate are derived
-%       from the ones we kept
-
 If we eliminate the requirement that after each new constraint added the set must be 
 transitively closed, we can actually go without these rules. After adding a new 
 constraint we would just have to apply the rules also with the constraint we derived at
@@ -161,26 +158,22 @@ function TransitiveClosure(C: constraints) -> constraints
             combine(c1,c2) for c1 in C for c2 in C
         ]
         C = join(C, new_constraints)
-    until new_constraints == {}
-    return C0
+    until C not changed
+    return C
 \end{minted}
 \noindent We have to pay attention to not include unnecessary constraints when adding
-new constraints to the set, which is why the \mintinline{coq}{join} function is used.
-Applying the rules is left for the \mintinline{coq}{combine} function. Furthermore,
-we also need to make sure that no rules of the form $ax + ax \le d$ makes it to the
-new set. We can achieve this by exchanging them for $ax \le \lfloor\frac{d}{2}\rfloor$
-in a post-processing step.
+new ones to the set, which is why a \mintinline{coq}{join} function is explicitly used.
+Applying the rules is left for the \mintinline{coq}{combine} function.
 
 \section{Implementation of the implication checker}
 
 Since the representation of the constraints is not exactly the same for our new 
 algorithm, we have opted to include these definitions in its own file, aptly named
 \verb|octagon.v|. Implementing an implication checker as defined before in terms of
-the algorithm developed in this chapter is left for Chapter \ref{cap:conclusions}.
-
-First of all, we need to define in Coq what are our octagonal constraints. Since 
-there are two types of octagonal constraints, additive and bound constraints, we
-represent this with two different constructors.
+the algorithm developed in this chapter is left as future work\footnote{See Section 
+\ref{sect:future-work} for more information.}. First of all, we need to define in Coq 
+what are our octagonal constraints. Since there are two types of octagonal constraints,
+additive and bound constraints, we represent this with two different constructors.
 
 \begin{minted}{coq}
 Inductive Constraint :=
@@ -205,23 +198,24 @@ Definition model : Type := nat -> Z.
 \end{minted}
 
 Therefore, we say that a model \mintinline{coq}{m} satisfies a single constraint \mintinline{coq}{m}
-if the following function returns true
+if the following function returns true.
 
 \begin{minted}{coq}
-Definition satisfies_single_constraint (m: model) (c: Constraint): bool :=
+Definition satisfies_single_constraint 
+    (m: model) (c: Constraint): bool  := 
   match c with 
   | AddConstr l r d => term_value m l + term_value m r <=? d
   | BndConstr t d => term_value m t <=? d
   end.
-(* where the bellow definition was included before *)
 \end{minted}
 
-\mintinline{coq}{term_value} is just a function which retrieves the value of the variable 
-\mintinline{coq}{x} according to the model \mintinline{coq}{m} and multiplies it by \mintinline{coq}{a}
-to get the value of the term under the model.
+\mintinline{coq}{term_value} is a function which retrieves the value of the variable 
+\mintinline{coq}{x} according to the model \mintinline{coq}{m} and multiplies it by 
+\mintinline{coq}{a} to get the value of the term under the model.
 
 \begin{minted}{coq}
-Definition term_value(m: model)(t: term): Z := proj1_sig t.(a) * (m t.(x)).
+Definition term_value(m: model)(t: term): Z := 
+    proj1_sig t.(a) * (m t.(x)).
 \end{minted}
 
 % Explain as a standalone theory
@@ -238,18 +232,21 @@ that conjunction implication checkers are equivalent to implication checkers, in
 file we drop the requirement of disjunctions in the constraints and simply treat our
 hypothesis as conjunctions of constraints.
 
-We also include a more general version of implication which works with conjunctions as
-thesis, and add some notation to help us work with it more comfortably.
+We also include a more general version of implication which works with a conjunction
+of thesis constraints, and add some notation to help us work with it more comfortably.
 
 \begin{minted}{coq}
 Definition implication(C: list Constraint)(C': list Constraint) :=
-  forall m, satisfies_constraints m C = true -> satisfies_constraints m C' = true.
+  forall m, 
+    satisfies_constraints m C = true ->
+    satisfies_constraints m C' = true.
 Infix "==>>" := implication (at level 96, right associativity).
 \end{minted}
 
-In this definition, \mintinline{coq}{satisfies_constraints} is just a \mintinline{coq}{forallb}
-over the \mintinline{coq}{satisfies_single_constraint} function. It reads as ``for every model
-which satisfies $C$, $C'$ is also satisfied''.
+In this definition, \mintinline{coq}{satisfies_constraints} is implemented as a 
+\mintinline{coq}{forallb} over the \mintinline{coq}{satisfies_single_constraint} 
+function. Its definition reads as ``for every model which satisfies $C$, it also
+satisfies $C'$''.
 
 The usual facts about implication are also true for \mintinline{coq}{==>>}, most notably.
 
@@ -294,14 +291,17 @@ three different functions:
 
 \mintinline{coq}{new_constraints} itself is just a function which takes every pair of constraints in 
 \mintinline{coq}{C} and collects all the constraints obtained from their combination.
-These combinations come from the rules in Harvey's and Stuckey's algorithm, but 
-% TODO: Add ref
-simplified to make our life easier. The rules themselves are implemented in the 
+These combinations come from the rules in Harvey's and Stuckey's algorithm\cite{HarveyStuckey},
+but simplified to make our life easier. The rules themselves are implemented in the 
 \mintinline{coq}{combine} function.
 
 \begin{minted}{coq}
 Definition new_constraints(C: list Constraint): list Constraint :=
-  flat_map (fun c => flat_map (fun c' => opt_to_list(combine c c')) C) C.
+  flat_map (fun c => 
+    flat_map (fun c' => 
+        opt_to_list(combine c c')
+    ) C
+  ) C.
   
 Definition combine(c c': Constraint): option Constraint :=
   match c, c' with
@@ -338,13 +338,27 @@ Definition normalize_constraint(c: Constraint): Constraint :=
    end.
 \end{minted}
 
-In fact, this is an important transformation, since it allows us to tighten the 
-% TODO: Talk a bit more about the benefits of tightening and how it provides extra
-%       information.
+In fact, this is an important transformation, referred to as \emph{tightening} in the
+literature \cite{TransitiveClosure}. Since we know that our variables hold integer
+values, if we have a constraint of the form $x + y \le d + \epsilon$ where $\epsilon$
+is a real number in the interval $(0,1)$ and $x,y,d\in \mathbb{Z}$ then we know that 
+$x + y \le d$, since that is its closest integer value to $d+\epsilon$. Sometimes this
+can allow us to improve upon our original constraints. Consider, for example, that we 
+had the following constraints.
 
-Finally the \mintinline{coq}{join} is potentially one of the most complicated functions in this file.
-Its purpose is to merge two lists of constraints into one, but getting rid of those constraints which 
-are duplicated or no longer needed.
+\begin{align}
+    \label{C1} x + y &\le 10  \\
+    \label{C2} x - y &\le 3 \\
+    \label{C3} y \le 3
+\end{align}
+
+Then, combining \ref{C1} and \ref{C2} we can deduce that $x + x \le 13$, which we can
+tighten into the bound constraint $x \le 6$. Then, combining this with \ref{C3} we 
+obtain the addition constraint $x + y \le 9$, which is an improvement over \ref{C1}.
+
+Finally the \mintinline{coq}{join} is potentially one of the most complicated functions
+in this file. Its purpose is to merge two lists of constraints into one, but getting 
+rid of those constraints which are duplicated or no longer needed.
 
 \begin{minted}{coq}
 Definition joined(c': Constraint)(cs: list Constraint) :=
@@ -375,7 +389,7 @@ Theorem new_constraints_implication(C T: list Constraint):
   (C ==>> T) -> (C ==>> new_constraints T).
 \end{minted}
 
-Once these are proved, the proof of \mintinline{coq}{iterate_implication} is as simple as performing
+Once these are proven, the proof of \mintinline{coq}{iterate_implication} is as simple as performing
 successive applications of these theorems.
 \begin{minted}{coq}
 Theorem iterate_implication(C: list Constraint):
@@ -388,5 +402,66 @@ Proof.
 Qed.
 \end{minted}
 
-The proof for these theorems can be found in the file \verb|octagon.v| in \verb|FORVES2|'s GitHub
+The proofs for these theorems can be found in the file \verb|octagon.v| in \verb|FORVES2|'s GitHub
 repository.
+
+% DONE: Elaborate a bit more here
+% DONE: Update references to new "future work" section
+% DONE: Explain scopes (such as %N)
+% DONE: Eliminate contractions from the whole text
+% DONE: Check there is no overflow of mintedinline in a page
+
+With this \mintinline{coq}{iterate} function defined and the \mintinline{coq}{iterate_implication}
+theorem proven, the only piece left to construct our implication checker is a function which would
+allow us to apply the \mintinline{coq}{iterate} function over the original constraints a given
+number of times.
+
+\begin{minted}{coq}
+Fixpoint church_numeral{A: Type}(n: nat)(f: A -> A)(x: A):=
+  match n with
+  | O => x
+  | S m => f (church_numeral m f x)
+  end.
+\end{minted}
+
+We call this function \mintinline{coq}{church_numeral} since it actually implements a translation
+between Peano-encoded naturals (the \mintinline{coq}{nat} type in Coq) and Church-encoded naturals,
+where the number \mintinline{coq}{n} corresponds to the function which takes another function 
+\mintinline{coq}{f} and a value \mintinline{coq}{x} and applies the function over the value 
+\mintinline{coq}{n} times.
+
+With these definitions it is now trivial to construct an implication checker. The only decision
+left to make is how many times we want to \mintinline{coq}{iterate}. A good choice ends up
+being twice the number of our hypothesis constraints. This is because when deriving the rules of
+our algorithm (implemented in \mintinline{coq}{combine}) we took care in ensuring that any rule
+from Harvey's and Stuckey's algorithm\cite{HarveyStuckey} could be derived by applying two of 
+our own, and their algorithm is proven to be complete. Even if this completeness is not proven
+in Coq, it ends up being the optimal choice.
+
+\begin{minted}{coq}
+Program Definition conj_trans_closure_checker
+    (n: nat) : conj_imp_checker := {|
+  conj_imp_checker_fun cs c := 
+    let trans_closure := church_numeral n iterate cs in 
+    existsb (fun c' => trivial_impl c' c) trans_closure
+|}.
+Next Obligation. 
+(* The proof proceeds by induction. We informally
+   prove it for the case n=1, assuming n=0 as proven.
+   Let  c' be a constraint in the transitive closure
+   such that [c'] ==>> [c]. Then, we have:
+            cs ==>> iterate cs    from iterate_implication
+    iterate cs ==>> [c']          from imply_refl
+          [c'] ==>> [c]           from our hypothesis
+   Through transitivity, we conclude that cs ==>> [c]. *)
+Qed. 
+Program Definition trans_closure_checker(n: nat) : imp_checker 
+    := mk_imp_checker (conj_trans_closure_checker n).
+\end{minted}
+
+Take note that the \mintinline{coq}{mk_imp_checker} used in this module is not
+the one we defined in Chapter \ref{cap:definitions}, since we are using a different definition
+to represent the state and constraints. Most notably, in this section we have used
+integers while we previously restricted ourselves to natural numbers. An explanation
+on how to bridge this implementation with the definitions in Chapter \ref{cap:definitions}
+will be described in Section \ref{sect:future-work}.
