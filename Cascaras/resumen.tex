@@ -3,21 +3,22 @@
 \section*{\tituloPortadaVal}
 
 
-La optimización del bytecode de la máquina virtual de Ethereum (EVM) presenta retos y oportunidades únicos debido a 
-sus requisitos específicos, que incluyen consideraciones como el coste de ejecución y el tamaño del ejecutable compilado. A 
-pesar de sus potenciales beneficios, la optimización en este ámbito sigue siendo limitada, principalmente debido a los 
-altos riesgos asociados con los programas EVM, llamados contratos inteligentes, donde incluso errores menores pueden 
-resultar en pérdidas financieras significativas. Para abordar estas preocupaciones, el proyecto FORVES desarrolla un 
-verificador, aprovechando las técnicas de verificación formal para garantizar que el código de bytes optimizado conserve su 
-semántica original. Al emplear Coq, un asistente de pruebas y lenguaje de programación rigurosamente verificado, FORVES 
-aumenta la confianza en los procesos de optimización, trasladando la carga de la prueba del optimizador al verificador. 
-Este proyecto esboza el desarrollo de FORVES2, una iteración avanzada, que incorpora información contextual para evaluar la 
-equivalencia del código. En concreto, el proyecto pretende diseñar un verificador de implicación capaz de comprobar si 
-ciertas restricciones octogonales se mantienen en contextos específicos, empleando un algoritmo de cálculo del cierre 
-transitivo para su validación.
-% Traducción realizada con la versión gratuita del traductor DeepL.com
+La optimización del \emph{bytecode} de la máquina virtual de Ethereum (EVM) presenta retos y
+oportunidades únicos debido a sus requisitos específicos, que incluyen consideraciones como 
+el coste de ejecución y el tamaño del ejecutable compilado. A pesar de sus potenciales 
+beneficios, la optimización en este ámbito sigue siendo limitada, principalmente debido a los 
+altos riesgos asociados con los programas EVM, llamados contratos inteligentes, donde incluso
+errores menores pueden resultar en pérdidas financieras significativas. Para abordar estas 
+preocupaciones, el proyecto FORVES desarrolla un verificador, aprovechando las técnicas de 
+verificación formal para garantizar que el código de bytes optimizado conserve su semántica
+original. Al emplear Coq, un asistente de pruebas y lenguaje de programación rigurosamente 
+verificado, FORVES aumenta la confianza en los procesos de optimización, trasladando la carga 
+de la prueba del optimizador al verificador. Este trabajo ocurre en el entorno de \verb|FORVES2|,
+un sucesor del proyecto anterior que incorpora información contextual para evaluar la equivalencia
+del código. En concreto, el proyecto pretende diseñar un verificador de implicaciones capaz de 
+comprobar si ciertas restricciones octogonales se cumple en contextos específicos, empleando para
+su validación un algoritmo de cálculo del cierre transitivo.
 
 \section*{Palabras clave}
 
 \noindent Coq, Restricciones octogonales, Programación funcional, Smart contracts, Ethereum, EVM, Blockchain
-% \noindent Máximo 10 palabras clave separadas por comas
